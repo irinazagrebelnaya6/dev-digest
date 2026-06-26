@@ -5,6 +5,8 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
+import { SeverityBadge } from "@/vendor/ui/primitives/Badge";
+import type { Severity } from "@/vendor/ui/primitives/tokens";
 import type { PrMeta } from "@/lib/types";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf } from "../../helpers";
@@ -56,6 +58,23 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
       </div>
       <div style={s.costCell}>
         <RunCostBadge costUsd={pr.cost_usd} />
+      </div>
+      <div style={s.findingsCell}>
+        {pr.findings_breakdown ? (
+          (["CRITICAL", "WARNING", "SUGGESTION"] as Severity[])
+            .filter((sev) => {
+              const key = sev.toLowerCase() as "critical" | "warning" | "suggestion";
+              return pr.findings_breakdown![key] > 0;
+            })
+            .map((sev) => {
+              const key = sev.toLowerCase() as "critical" | "warning" | "suggestion";
+              return (
+                <SeverityBadge key={sev} severity={sev} count={pr.findings_breakdown![key]} compact />
+              );
+            })
+        ) : (
+          <span style={s.muted}>—</span>
+        )}
       </div>
       <div>
         <Badge dot color={st.c} bg="transparent">

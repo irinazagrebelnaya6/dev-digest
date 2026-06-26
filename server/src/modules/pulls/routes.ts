@@ -116,16 +116,34 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
     // not surfaced on the list — findings live on the PR detail page.)
     const prIds = rows.map((r) => r.id);
-    const latestReviewByPr = new Map<string, { score: number | null }>();
+    const latestReviewByPr = new Map<string, { id: string; score: number | null }>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score })
+        .select({ prId: t.reviews.prId, id: t.reviews.id, score: t.reviews.score })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
       // Rows are newest-first → first seen per PR is the latest review.
       for (const rv of reviewRows) {
-        if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
+        if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { id: rv.id, score: rv.score });
+      }
+    }
+
+    // Per-severity finding counts for the latest review of each PR (FINDINGS column).
+    const breakdownByReview = new Map<string, { critical: number; warning: number; suggestion: number }>();
+    const latestReviewIds = [...latestReviewByPr.values()].map((v) => v.id);
+    if (latestReviewIds.length > 0) {
+      const findingRows = await container.db
+        .select({ reviewId: t.findings.reviewId, severity: t.findings.severity })
+        .from(t.findings)
+        .where(inArray(t.findings.reviewId, latestReviewIds));
+      for (const f of findingRows) {
+        if (!f.reviewId) continue;
+        const c = breakdownByReview.get(f.reviewId) ?? { critical: 0, warning: 0, suggestion: 0 };
+        if (f.severity === 'CRITICAL') c.critical++;
+        else if (f.severity === 'WARNING') c.warning++;
+        else if (f.severity === 'SUGGESTION') c.suggestion++;
+        breakdownByReview.set(f.reviewId, c);
       }
     }
 
@@ -157,7 +175,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
 
     const now = Date.now();
     return rows.map((r) => {
-      const review = latestReviewByPr.get(r.id);
+      const latestRev = latestReviewByPr.get(r.id);
       return {
         id: r.id,
         number: r.number,
@@ -178,8 +196,9 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         }),
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
-        score: review ? review.score : null,
+        score: latestRev ? latestRev.score : null,
         cost_usd: latestRunCostByPr.get(r.id) ?? null,
+        findings_breakdown: latestRev ? (breakdownByReview.get(latestRev.id) ?? null) : null,
       };
     });
   });
