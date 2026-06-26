@@ -129,6 +129,32 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
+    // Newest completed run per PR → cost for the COST column. One query, JS
+    // grouping — same pattern as latestReviewByPr above.
+    const latestRunCostByPr = new Map<string, number | null>();
+    if (prIds.length > 0) {
+      const runRows = await container.db
+        .select({
+          prId: t.agentRuns.prId,
+          model: t.agentRuns.model,
+          tokensIn: t.agentRuns.tokensIn,
+          tokensOut: t.agentRuns.tokensOut,
+        })
+        .from(t.agentRuns)
+        .where(and(inArray(t.agentRuns.prId, prIds), eq(t.agentRuns.status, 'done')))
+        .orderBy(desc(t.agentRuns.ranAt));
+      for (const r of runRows) {
+        if (r.prId && !latestRunCostByPr.has(r.prId)) {
+          latestRunCostByPr.set(
+            r.prId,
+            r.model && r.tokensIn != null && r.tokensOut != null
+              ? (container.priceBook.estimate(r.model, r.tokensIn, r.tokensOut) ?? null)
+              : null,
+          );
+        }
+      }
+    }
+
     const now = Date.now();
     return rows.map((r) => {
       const review = latestReviewByPr.get(r.id);
@@ -153,6 +179,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        cost_usd: latestRunCostByPr.get(r.id) ?? null,
       };
     });
   });
