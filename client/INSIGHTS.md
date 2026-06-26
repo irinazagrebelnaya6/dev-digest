@@ -34,6 +34,8 @@
 
 [2026-06-26] Implemented findings severity filter chips (L01 homework). Changes only in `FindingsPanel/helpers.ts` + `FindingsPanel/FindingsPanel.tsx`. Reused `Chip` (active state, children) + `SeverityBadge` (compact prop, icon+count) — no new components needed. Local `useState<Severity | null>` is sufficient (ephemeral filter, no deep-linking requirement). Both severity and hide-low filters compose via `visibleFindings(findings, hideLow, activeSev)`.
 
+[2026-06-26] Hover popover for FINDINGS column: use `ReactDOM.createPortal(el, document.body)` to escape parent `overflow: hidden` on `.tableCard`. Without portal the popover gets clipped. Popover uses `position: fixed` with coordinates from `getBoundingClientRect()` on the hovered cell. `pointerEvents: none` prevents the popover itself from stealing the mouseleave event.
+
 [2026-06-26] Implemented PR list FINDINGS column + accordion header severity badges. PR list: `PRRow.tsx` renders `SeverityBadge compact` per non-zero severity from `pr.findings_breakdown`. Adding a column requires 4 edits: `GRID`, `COLUMN_KEYS`, cell in `PRRow.tsx`, translation in `messages/en/prReview.json`. Accordion header: replaced plain-text counts with `SeverityBadge compact` icons directly in `ReviewRunAccordion.tsx` — no helper needed since counts are simple filter expressions.
 
 ## Open Questions
