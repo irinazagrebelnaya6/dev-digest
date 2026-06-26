@@ -178,6 +178,16 @@ export const PrMeta = z.object({
     warning: z.number().int(),
     suggestion: z.number().int(),
   }).nullish(),
+  // Top-5 findings from the latest review for hover preview (null until reviewed).
+  findings_preview: z.array(z.object({
+    severity: z.string(),
+    title: z.string(),
+    file: z.string(),
+    start_line: z.number().int(),
+    category: z.string(),
+    confidence: z.number(),
+    rationale: z.string(),
+  })).nullish(),
 });
 export type PrMeta = z.infer<typeof PrMeta>;
 

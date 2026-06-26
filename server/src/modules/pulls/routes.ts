@@ -129,12 +129,24 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Per-severity finding counts for the latest review of each PR (FINDINGS column).
+    // Per-severity finding counts + hover preview for the latest review of each PR.
     const breakdownByReview = new Map<string, { critical: number; warning: number; suggestion: number }>();
+    type FindingPreview = { severity: string; title: string; file: string; start_line: number; category: string; confidence: number; rationale: string };
+    const allPreviewsByReview = new Map<string, FindingPreview[]>();
+    const SEV_RANK: Record<string, number> = { CRITICAL: 0, WARNING: 1, SUGGESTION: 2 };
     const latestReviewIds = [...latestReviewByPr.values()].map((v) => v.id);
     if (latestReviewIds.length > 0) {
       const findingRows = await container.db
-        .select({ reviewId: t.findings.reviewId, severity: t.findings.severity })
+        .select({
+          reviewId: t.findings.reviewId,
+          severity: t.findings.severity,
+          title: t.findings.title,
+          file: t.findings.file,
+          startLine: t.findings.startLine,
+          category: t.findings.category,
+          confidence: t.findings.confidence,
+          rationale: t.findings.rationale,
+        })
         .from(t.findings)
         .where(inArray(t.findings.reviewId, latestReviewIds));
       for (const f of findingRows) {
@@ -144,6 +156,13 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         else if (f.severity === 'WARNING') c.warning++;
         else if (f.severity === 'SUGGESTION') c.suggestion++;
         breakdownByReview.set(f.reviewId, c);
+        const arr = allPreviewsByReview.get(f.reviewId) ?? [];
+        arr.push({ severity: f.severity, title: f.title, file: f.file, start_line: f.startLine, category: f.category, confidence: f.confidence, rationale: f.rationale });
+        allPreviewsByReview.set(f.reviewId, arr);
+      }
+      // Sort by severity, keep top 5 per review.
+      for (const [id, arr] of allPreviewsByReview) {
+        allPreviewsByReview.set(id, arr.sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9)).slice(0, 5));
       }
     }
 
@@ -199,6 +218,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         score: latestRev ? latestRev.score : null,
         cost_usd: latestRunCostByPr.get(r.id) ?? null,
         findings_breakdown: latestRev ? (breakdownByReview.get(latestRev.id) ?? null) : null,
+        findings_preview: latestRev ? (allPreviewsByReview.get(latestRev.id) ?? null) : null,
       };
     });
   });
