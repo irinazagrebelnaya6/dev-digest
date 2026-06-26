@@ -28,6 +28,8 @@
 
 [2026-06-26] Implemented Run Cost Badge (L01 lab feature). Cost is computed from existing `tokensIn`/`tokensOut` in `agent_runs` via `PriceBook` — zero extra LLM calls. Two server changes: `RunSummary` gets `cost_usd`, `PrMeta` gets `cost_usd`. Trade-off: cost is not persisted to DB, recomputed on read (acceptable since PriceBook caches pricing with 6h TTL).
 
+[2026-06-26] Implemented findings_breakdown for PR list FINDINGS column. Pattern: extend `latestReviewByPr` Map to also store `id`, then one additional `SELECT` from `t.findings` with `inArray(reviewId, latestReviewIds)` + JS grouping. `findings.reviewId` is nullable in the schema — always null-guard (`if (!f.reviewId) continue`). Added `findings_breakdown` to `PrMeta` schema as `.nullish()` nested object `{critical, warning, suggestion}`.
+
 ## Open Questions
 
 [2026-06-26] `agentRuns.prId` is nullable in schema but shouldn't be logically — was this intentional or an oversight in migration 0000?
