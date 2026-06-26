@@ -20,6 +20,10 @@
 
 ## Tool & Library Notes
 
+[2026-06-26] `Chip` primitive (`vendor/ui/primitives/Chip.tsx`) accepts `children` + `active` + `onClick` — wrapping a `SeverityBadge` inside it gives coloured filter chips with zero extra code. No need for a custom chip variant.
+
+[2026-06-26] `SeverityBadge` `compact` prop hides the label text and shows only icon + count — ideal for space-constrained toolbar chips.
+
 ## Recurring Errors & Fixes
 
 [2026-06-26] Adding a non-optional field to a shared Zod schema used in test fixtures causes TS error: `Type 'undefined' is not assignable to type 'number | null'`. Fix: use `.nullish()` instead of `.nullable()` for fields computed server-side that old fixtures won't have.
@@ -27,5 +31,7 @@
 ## Session Notes
 
 [2026-06-26] Implemented Run Cost Badge client side. New shared component `RunCostBadge` (`client/src/components/RunCostBadge/index.tsx`) with `compact` and `detailed` variants. Compact for PR list column, detailed for VerdictBanner. Format rule: ≥3 significant digits, `—` for null, never `$0.00`.
+
+[2026-06-26] Implemented findings severity filter chips (L01 homework). Changes only in `FindingsPanel/helpers.ts` + `FindingsPanel/FindingsPanel.tsx`. Reused `Chip` (active state, children) + `SeverityBadge` (compact prop, icon+count) — no new components needed. Local `useState<Severity | null>` is sufficient (ephemeral filter, no deep-linking requirement). Both severity and hide-low filters compose via `visibleFindings(findings, hideLow, activeSev)`.
 
 ## Open Questions
