@@ -35,9 +35,6 @@ export function FindingsPanel({
   const counts = React.useMemo(() => severityCounts(findings), [findings]);
   const shown = React.useMemo(() => visibleFindings(findings, hideLow, activeSev), [findings, hideLow, activeSev]);
 
-  // TODO: remove before deploy
-  console.log("findings debug", JSON.stringify(findings));
-
   // j/k navigation + a/d shortcuts on the focused finding (keyboard).
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
