@@ -109,5 +109,8 @@ export const RunSummary = z.object({
   // findings that trip the agent's gate. Null on failed/cancelled runs.
   score: z.number().int().nullable(),
   blockers: z.number().int().nullable(),
+  // Computed cost in USD (tokens × model price). Null when status !== 'done'
+  // or when pricing is unavailable for the model.
+  cost_usd: z.number().nullish(),
 });
 export type RunSummary = z.infer<typeof RunSummary>;

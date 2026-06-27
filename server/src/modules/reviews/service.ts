@@ -68,7 +68,17 @@ export class ReviewService {
 
   /** All runs for a PR (any status), newest first — the run history (incl. failures). */
   async listRuns(workspaceId: string, prId: string) {
-    return this.repo.listRunsForPull(workspaceId, prId);
+    const raw = await this.repo.listRunsForPull(workspaceId, prId);
+    return raw.map((run) => ({
+      ...run,
+      cost_usd:
+        run.status === 'done' &&
+        run.tokens_in != null &&
+        run.tokens_out != null &&
+        run.model != null
+          ? (this.container.priceBook.estimate(run.model, run.tokens_in, run.tokens_out) ?? null)
+          : null,
+    }));
   }
 
   /** Delete one run from the history (+ its trace). */

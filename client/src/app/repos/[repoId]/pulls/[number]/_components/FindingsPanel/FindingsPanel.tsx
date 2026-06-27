@@ -5,11 +5,14 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Toggle, EmptyState } from "@devdigest/ui";
+import { Chip } from "@/vendor/ui/primitives/Chip";
+import { SeverityBadge } from "@/vendor/ui/primitives/Badge";
+import type { Severity } from "@/vendor/ui/primitives/tokens";
 import type { FindingRecord } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
 import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
 import { KEY_TO_ACTION } from "./constants";
-import { visibleFindings } from "./helpers";
+import { visibleFindings, severityCounts } from "./helpers";
 import { s } from "./styles";
 
 export function FindingsPanel({
@@ -26,9 +29,11 @@ export function FindingsPanel({
   const t = useTranslations("prReview");
   const action = useFindingAction();
   const [hideLow, setHideLow] = React.useState(false);
+  const [activeSev, setActiveSev] = React.useState<Severity | null>(null);
   const [focusIdx, setFocusIdx] = React.useState(0);
 
-  const shown = React.useMemo(() => visibleFindings(findings, hideLow), [findings, hideLow]);
+  const counts = React.useMemo(() => severityCounts(findings), [findings]);
+  const shown = React.useMemo(() => visibleFindings(findings, hideLow, activeSev), [findings, hideLow, activeSev]);
 
   // j/k navigation + a/d shortcuts on the focused finding (keyboard).
   React.useEffect(() => {
@@ -48,6 +53,17 @@ export function FindingsPanel({
   return (
     <div>
       <div style={s.toolbar}>
+        {(["CRITICAL", "WARNING", "SUGGESTION"] as const)
+          .filter((sev) => counts[sev] > 0)
+          .map((sev) => (
+            <Chip
+              key={sev}
+              active={activeSev === sev}
+              onClick={() => setActiveSev((p) => (p === sev ? null : sev))}
+            >
+              <SeverityBadge severity={sev} count={counts[sev]} compact />
+            </Chip>
+          ))}
         <div style={s.toggleGroup}>
           {t("panel.hideLowConfidence")}
           <Toggle on={hideLow} onChange={setHideLow} size={16} />

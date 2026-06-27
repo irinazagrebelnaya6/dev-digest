@@ -63,6 +63,13 @@ export function FindingsTab({
     [onDelete],
   );
 
+  // run_id → RunSummary lookup for cost display in VerdictBanner
+  const runByRunId = React.useMemo(() => {
+    const m = new Map<string, RunSummary>();
+    if (prRuns) for (const r of prRuns) m.set(r.run_id, r);
+    return m;
+  }, [prRuns]);
+
   // Timeline → Review-runs navigation: clicking an agent name in the timeline
   // opens + scrolls to that run's accordion below. The nonce re-triggers the
   // scroll even when the same run is clicked twice.
@@ -164,6 +171,7 @@ export function FindingsTab({
             headSha={headSha}
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
+            runSummary={review.run_id ? (runByRunId.get(review.run_id) ?? null) : null}
           />
         ))
       )}

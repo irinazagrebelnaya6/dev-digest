@@ -7,7 +7,8 @@
 
 import React from "react";
 import { Icon, Badge } from "@devdigest/ui";
-import type { ReviewRecord, Verdict } from "@devdigest/shared";
+import { SeverityBadge } from "@/vendor/ui/primitives/Badge";
+import type { ReviewRecord, RunSummary, Verdict } from "@devdigest/shared";
 import { FindingsPanel } from "../FindingsPanel";
 import { VerdictBanner } from "../VerdictBanner";
 import { useDeleteReview } from "../../../../../../../lib/hooks/reviews";
@@ -31,6 +32,7 @@ export function ReviewRunAccordion({
   headSha,
   targetRunId = null,
   targetNonce = 0,
+  runSummary = null,
 }: {
   review: ReviewRecord;
   prId: string;
@@ -41,6 +43,8 @@ export function ReviewRunAccordion({
    *  (driven from the Timeline: clicking an agent name navigates here). */
   targetRunId?: string | null;
   targetNonce?: number;
+  /** The RunSummary row for this review's run — used to show cost in the banner. */
+  runSummary?: RunSummary | null;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -54,6 +58,9 @@ export function ReviewRunAccordion({
   const del = useDeleteReview(prId);
   const findings = review.findings;
   const blockers = findings.filter((f) => f.severity === "CRITICAL" && !f.dismissed_at).length;
+  const critCount = findings.filter((f) => f.severity === "CRITICAL").length;
+  const warnCount = findings.filter((f) => f.severity === "WARNING").length;
+  const suggCount = findings.filter((f) => f.severity === "SUGGESTION").length;
   const verdictColor = review.verdict ? VERDICT_COLOR[review.verdict] ?? "var(--text-muted)" : "var(--text-muted)";
 
   return (
@@ -93,9 +100,18 @@ export function ReviewRunAccordion({
             {review.verdict.replace("_", " ")}
           </Badge>
         )}
-        <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-          {findings.length} finding{findings.length === 1 ? "" : "s"}
-          {blockers > 0 ? ` · ${blockers} blocker${blockers === 1 ? "" : "s"}` : ""}
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {critCount > 0 && <SeverityBadge severity="CRITICAL" count={critCount} compact />}
+          {warnCount > 0 && <SeverityBadge severity="WARNING" count={warnCount} compact />}
+          {suggCount > 0 && <SeverityBadge severity="SUGGESTION" count={suggCount} compact />}
+          {findings.length === 0 && (
+            <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>0 findings</span>
+          )}
+          {blockers > 0 && (
+            <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
+              · {blockers} blocker{blockers === 1 ? "" : "s"}
+            </span>
+          )}
         </span>
         <span style={{ flex: 1 }} />
         {review.score != null && (
@@ -144,6 +160,9 @@ export function ReviewRunAccordion({
                 findingsCount={findings.length}
                 blockers={blockers}
                 agentName={review.agent_name}
+                costUsd={runSummary?.cost_usd ?? null}
+                tokensIn={runSummary?.tokens_in ?? null}
+                tokensOut={runSummary?.tokens_out ?? null}
               />
             </div>
           )}

@@ -116,22 +116,85 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
     // not surfaced on the list — findings live on the PR detail page.)
     const prIds = rows.map((r) => r.id);
-    const latestReviewByPr = new Map<string, { score: number | null }>();
+    const latestReviewByPr = new Map<string, { id: string; score: number | null }>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score })
+        .select({ prId: t.reviews.prId, id: t.reviews.id, score: t.reviews.score })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
       // Rows are newest-first → first seen per PR is the latest review.
       for (const rv of reviewRows) {
-        if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
+        if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { id: rv.id, score: rv.score });
+      }
+    }
+
+    // Per-severity finding counts + hover preview for the latest review of each PR.
+    const breakdownByReview = new Map<string, { critical: number; warning: number; suggestion: number }>();
+    type FindingPreview = { severity: string; title: string; file: string; start_line: number; category: string; confidence: number; rationale: string };
+    const allPreviewsByReview = new Map<string, FindingPreview[]>();
+    const SEV_RANK: Record<string, number> = { CRITICAL: 0, WARNING: 1, SUGGESTION: 2 };
+    const latestReviewIds = [...latestReviewByPr.values()].map((v) => v.id);
+    if (latestReviewIds.length > 0) {
+      const findingRows = await container.db
+        .select({
+          reviewId: t.findings.reviewId,
+          severity: t.findings.severity,
+          title: t.findings.title,
+          file: t.findings.file,
+          startLine: t.findings.startLine,
+          category: t.findings.category,
+          confidence: t.findings.confidence,
+          rationale: t.findings.rationale,
+        })
+        .from(t.findings)
+        .where(inArray(t.findings.reviewId, latestReviewIds));
+      for (const f of findingRows) {
+        if (!f.reviewId) continue;
+        const c = breakdownByReview.get(f.reviewId) ?? { critical: 0, warning: 0, suggestion: 0 };
+        if (f.severity === 'CRITICAL') c.critical++;
+        else if (f.severity === 'WARNING') c.warning++;
+        else if (f.severity === 'SUGGESTION') c.suggestion++;
+        breakdownByReview.set(f.reviewId, c);
+        const arr = allPreviewsByReview.get(f.reviewId) ?? [];
+        arr.push({ severity: f.severity, title: f.title, file: f.file, start_line: f.startLine, category: f.category, confidence: f.confidence, rationale: f.rationale });
+        allPreviewsByReview.set(f.reviewId, arr);
+      }
+      // Sort by severity, keep top 5 per review.
+      for (const [id, arr] of allPreviewsByReview) {
+        allPreviewsByReview.set(id, arr.sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9)).slice(0, 5));
+      }
+    }
+
+    // Newest completed run per PR → cost for the COST column. One query, JS
+    // grouping — same pattern as latestReviewByPr above.
+    const latestRunCostByPr = new Map<string, number | null>();
+    if (prIds.length > 0) {
+      const runRows = await container.db
+        .select({
+          prId: t.agentRuns.prId,
+          model: t.agentRuns.model,
+          tokensIn: t.agentRuns.tokensIn,
+          tokensOut: t.agentRuns.tokensOut,
+        })
+        .from(t.agentRuns)
+        .where(and(inArray(t.agentRuns.prId, prIds), eq(t.agentRuns.status, 'done')))
+        .orderBy(desc(t.agentRuns.ranAt));
+      for (const r of runRows) {
+        if (r.prId && !latestRunCostByPr.has(r.prId)) {
+          latestRunCostByPr.set(
+            r.prId,
+            r.model && r.tokensIn != null && r.tokensOut != null
+              ? (container.priceBook.estimate(r.model, r.tokensIn, r.tokensOut) ?? null)
+              : null,
+          );
+        }
       }
     }
 
     const now = Date.now();
     return rows.map((r) => {
-      const review = latestReviewByPr.get(r.id);
+      const latestRev = latestReviewByPr.get(r.id);
       return {
         id: r.id,
         number: r.number,
@@ -152,7 +215,10 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         }),
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
-        score: review ? review.score : null,
+        score: latestRev ? latestRev.score : null,
+        cost_usd: latestRunCostByPr.get(r.id) ?? null,
+        findings_breakdown: latestRev ? (breakdownByReview.get(latestRev.id) ?? null) : null,
+        findings_preview: latestRev ? (allPreviewsByReview.get(latestRev.id) ?? null) : null,
       };
     });
   });
