@@ -25,6 +25,9 @@ export const queryKeys = {
   skill: (id: string | null | undefined) => ["skill", id] as const,
   agentSkills: (agentId: string | null | undefined) => ["agent-skills", agentId] as const,
 
+  // Conventions
+  conventions: (repoId: string | null | undefined) => ["conventions", repoId] as const,
+
   // PR reviews & runs
   reviews: (prId: string | null | undefined) => ["reviews", prId] as const,
   prRuns: (prId: string | null | undefined) => ["pr-runs", prId] as const,

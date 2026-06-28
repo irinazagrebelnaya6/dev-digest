@@ -34,6 +34,14 @@ export class SkillsRepository {
     return this.db.select().from(t.skills).where(eq(t.skills.workspaceId, workspaceId));
   }
 
+  async findByName(workspaceId: string, name: string): Promise<SkillRow | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, name)));
+    return row;
+  }
+
   async getById(workspaceId: string, id: string): Promise<SkillRow | undefined> {
     const [row] = await this.db
       .select()

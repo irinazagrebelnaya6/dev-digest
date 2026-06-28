@@ -34,9 +34,13 @@
 
 ## Recurring Errors & Fixes
 
+[2026-06-28] Drizzle `db.update().set(obj)` rejects a plain `{ status?: string }` when the column is typed as a text enum — TypeScript sees the types as incompatible. Fix: use conditional spreads the way `skills/repository.ts:90-96` does: `{ ...(fields.status !== undefined ? { status: fields.status } : {}) }`. The spread produces a type that satisfies the enum column type.
+
 [2026-06-26] Adding a required field to a shared Zod schema breaks existing test fixtures that don't include it. Fix: use `.nullish()` (not `.nullable()`) for fields that are computed externally and not stored in DB — the type becomes `T | null | undefined`, which is backwards-compatible with old fixtures.
 
 ## Session Notes
+
+[2026-06-28] Conventions Lesson 3 — inline edit + skill preview. Added `UpdateConventionBody` (optional status/rule/category) to shared contracts; `updateFields` to repo (conditional spreads for Drizzle enum columns); `updateCandidate` to service. PATCH `/conventions/:id` migrated from `UpdateConventionStatusBody` to `UpdateConventionBody`. `POST /repos/:id/conventions/build-skill` now accepts optional `name`/`description`/`body` overrides — if provided they replace the auto-generated values from `renderSkillBody`. Both vendor/shared copies updated in sync.
 
 [2026-06-28] Added `skill` RunEventKind to expose which skills an agent loads in the live log. Server emits via `runLog.skill(...)` in run-executor.ts:189. The message format is "Loaded N skill(s): name1, name2" or "No skills linked — running with system prompt only". Both branches use the new kind so the client can style them distinctly (purple).
 

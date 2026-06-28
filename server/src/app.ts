@@ -87,7 +87,13 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   // Security headers (X-Content-Type-Options, X-Frame-Options, …). The API
   // serves JSON only, so the default CSP is fine.
   await app.register(helmet);
-  await app.register(cors, { origin: [config.webOrigin], credentials: true });
+  await app.register(cors, {
+    origin: [config.webOrigin],
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 0, // don't let browsers cache preflight — avoids stale method lists in dev
+  });
   await app.register(FastifySSEPlugin);
 
   // Global rate limit. Disabled under test so integration suites can hammer

@@ -20,11 +20,21 @@
 
 ## What Doesn't Work
 
+[2026-06-28] `mutationCache.onError` in `providers.tsx` fires for ALL mutation errors globally AND local `catch` blocks around `mutateAsync()` also fire — producing two error toasts for one failure. Fix: drop `toast.error()` from catch blocks that use `mutateAsync`; the catch is still needed to prevent unhandled rejection and manage local state (e.g. keep edit mode open). Only call `toast.error` in catch when the global handler is NOT wired (i.e. outside of `QueryClientProvider`).
+
 [2026-06-28] `Icon.ChevronUp` does not exist in the `@devdigest/ui` Icon namespace — the registry in `client/src/vendor/ui/icons.tsx` is explicit, not a full lucide re-export. Use `Icon.ArrowUp` / `Icon.ArrowDown` for vertical movement buttons. Always check `icons.tsx` before using any `Icon.*` name.
 
 [2026-06-28] Do NOT use `queryKeys.providerModels(undefined)` for prefix invalidation — it produces `["provider-models", undefined]` which only matches queries where provider IS undefined, not all provider-model queries. For prefix invalidation keep the raw array: `qc.invalidateQueries({ queryKey: ["provider-models"] })`. Add a comment so the next reader doesn't "fix" it with the factory.
 
 ## Codebase Patterns
+
+[2026-06-28] `Tabs` from `vendor/ui/kit` defaults to `pad="0 28px"` (matches the app shell). Inside a `Modal` pass `pad="0"` to flush-align tabs with the modal edge — otherwise tabs appear indented inside the dialog frame.
+
+[2026-06-28] Multi-source import modals (file + URL tabs): keep a single shared `parsed` boolean and shared prefill fields (`name`, `description`, `type`, `body`). Reset `parsed` and clear the source-specific error on tab switch — omitting the reset leaves the "Import" button enabled even though no content was loaded from the new source.
+
+[2026-06-28] Client-side `renderSkillBody(candidates)` in `BuildSkillModal.tsx` mirrors the server helper in `conventions/helpers.ts` — groups accepted candidates by category and renders markdown with evidence references. Keeping this as a local pure function (not a shared import) is correct: it's UI-only preview logic, not a business rule, and the server version is authoritative at save time via the `body` override field.
+
+[2026-06-28] `useUpdateConventionStatus` hook signature extended to accept all three mutable fields (`status?`, `rule?`, `category?`) — the same hook drives both Accept/Reject toggles (status-only) and inline rule editing (rule/category). All three are optional so callers only include what changed. The server validates via `UpdateConventionBody` which requires at least one field to have a value.
 
 [2026-06-28] `useRunEvents` in `client/src/lib/hooks/reviews.ts` registers SSE event listeners explicitly per kind. When adding a new `RunEventKind` (e.g. `'skill'`), add it to the `for (const kind of [...])` array at line 198 — omitting it means events of that kind are never received in the browser even though the server emits them.
 
@@ -61,6 +71,10 @@
 [2026-06-26] Adding a non-optional field to a shared Zod schema used in test fixtures causes TS error: `Type 'undefined' is not assignable to type 'number | null'`. Fix: use `.nullish()` instead of `.nullable()` for fields computed server-side that old fixtures won't have.
 
 ## Session Notes
+
+[2026-06-28] Step 10/11 — URL import + plugin packaging. Added "From URL" tab to `ImportSkillModal`: `fetch()` → `parseSkillMarkdown()` → prefill. Switching tabs resets `parsed` state and clears both error slots — critical so the "Import" button doesn't stay enabled after switching. Created `plugin.json` + `marketplace.json` at repo root listing all 4 API Contract Reviewer skills.
+
+[2026-06-28] Conventions Lesson 3 — inline edit + skill preview/edit modal. CandidateCard gains an Edit button (Icon.Edit) that toggles an inline edit mode: textarea for rule, input for category, Save/Cancel. BuildSkillModal expanded to 640 px width with editable Name/Description/Body fields and a client-side generated markdown preview (via local `renderSkillBody`). `useBuildConventionsSkill` now passes name/description/body overrides to the server. Fixed double-toast bug: removed `toast.error()` from the `saveEdit` catch block.
 
 [2026-06-28] Added `skill` RunEventKind (purple in LiveLogStream) so agent run logs visually distinguish "skills loaded" lines from generic info. Required 4 coordinated changes: `RunEventKind` enum in both vendor/shared copies, `LEVEL` map in run-logger.ts, `skill()` method on RunLogger, and the `for (const kind of [...])` listener array in useRunEvents. Forgetting any one of these causes silent drop.
 

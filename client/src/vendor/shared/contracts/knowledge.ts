@@ -141,15 +141,33 @@ export const CommunitySkill = z.object({
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
 // ---- Conventions ----
+export const ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionStatus = z.infer<typeof ConventionStatus>;
+
 export const ConventionCandidate = z.object({
   id: z.string(),
+  category: z.string().nullish(),
   rule: z.string(),
-  evidence_path: z.string(),
-  evidence_snippet: z.string(),
-  confidence: z.number().min(0).max(1),
-  accepted: z.boolean(),
+  evidence_path: z.string().nullish(),
+  evidence_snippet: z.string().nullish(),
+  evidence_line: z.number().int().nullish(),
+  confidence: z.number().min(0).max(1).nullish(),
+  status: ConventionStatus,
+  extraction_run_id: z.string().nullish(),
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+export const UpdateConventionStatusBody = z.object({
+  status: ConventionStatus,
+});
+export type UpdateConventionStatusBody = z.infer<typeof UpdateConventionStatusBody>;
+
+export const UpdateConventionBody = z.object({
+  status: ConventionStatus.optional(),
+  rule: z.string().min(1).optional(),
+  category: z.string().optional(),
+});
+export type UpdateConventionBody = z.infer<typeof UpdateConventionBody>;
 
 // ---- Agents ----
 export const Provider = z.enum(['openai', 'anthropic', 'openrouter']);
