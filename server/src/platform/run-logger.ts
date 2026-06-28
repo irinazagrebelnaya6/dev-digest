@@ -28,6 +28,7 @@ export type PinoLike = {
 /** Which stdout level a run-event kind mirrors to. */
 const LEVEL: Record<RunEventKind, keyof PinoLike> = {
   info: 'info',
+  skill: 'info',
   tool: 'debug',
   result: 'info',
   error: 'error',
@@ -54,6 +55,10 @@ export class RunLogger {
 
   info(msg: string, data?: unknown): void {
     this.event('info', msg, data);
+  }
+  /** Skills loaded for this run — shown purple in the Live Log. */
+  skill(msg: string, data?: unknown): void {
+    this.event('skill', msg, data);
   }
   /** External I/O (LLM / embedding / git) — shown amber in the Live Log. */
   tool(msg: string, data?: unknown): void {
