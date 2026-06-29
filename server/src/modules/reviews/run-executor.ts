@@ -183,6 +183,19 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // ---- Skills: fetch enabled skills linked to this agent -----------------
+      const linkedSkills = await this.container.agentsRepo.linkedSkills(agent.id);
+      const enabledSkills = linkedSkills.filter((l) => l.skill.enabled);
+      if (enabledSkills.length > 0) {
+        runLog.skill(
+          `Loaded ${enabledSkills.length} skill(s): ${enabledSkills.map((l) => l.skill.name).join(', ')}`,
+          { skills: enabledSkills.map((l) => ({ name: l.skill.name, type: l.skill.type })) },
+        );
+      } else {
+        runLog.skill('No skills linked to this agent — running with system prompt only');
+      }
+      const skillBodies = enabledSkills.map((l) => l.skill.body);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -203,6 +216,9 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // Linked + enabled skills (ordered). assemblePrompt renders them as the
+        // "## Skills / rules" section below the system prompt.
+        ...(skillBodies.length > 0 ? { skills: skillBodies } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),

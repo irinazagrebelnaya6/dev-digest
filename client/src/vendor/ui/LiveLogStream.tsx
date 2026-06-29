@@ -6,12 +6,13 @@ import { IconBtn } from "./primitives";
 
 export interface LogLine {
   t: string;
-  k: "info" | "result" | "tool" | "error";
+  k: "info" | "skill" | "result" | "tool" | "error";
   m: string;
 }
 
 const LOG_COLOR: Record<LogLine["k"], string> = {
   info: "var(--accent-text)",
+  skill: "var(--purple, #a78bfa)",
   result: "var(--ok)",
   tool: "var(--warn)",
   error: "var(--crit)",

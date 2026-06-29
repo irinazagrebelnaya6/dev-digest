@@ -131,6 +131,24 @@ export const Skill = z.object({
 });
 export type Skill = z.infer<typeof Skill>;
 
+export const CreateSkillBody = z.object({
+  name: z.string().min(1),
+  description: z.string().default(''),
+  type: SkillType,
+  source: SkillSource.default('manual'),
+  body: z.string().min(1),
+});
+export type CreateSkillBody = z.infer<typeof CreateSkillBody>;
+
+export const UpdateSkillBody = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  type: SkillType.optional(),
+  body: z.string().min(1).optional(),
+  enabled: z.boolean().optional(),
+});
+export type UpdateSkillBody = z.infer<typeof UpdateSkillBody>;
+
 export const CommunitySkill = z.object({
   name: z.string(),
   repo: z.string(),

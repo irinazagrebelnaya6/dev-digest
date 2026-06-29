@@ -2,13 +2,45 @@
 
 ## What Works
 
+[2026-06-28] Deriving `selectedSkill` from TanStack Query cache by id (`skills.find(s => s.id === selected.id) ?? selected`) keeps the drawer in sync after mutations without an extra fetch. Never store a full entity snapshot in local state when the query cache already owns that data.
+
+[2026-06-28] Inline confirmation state (`confirmDelete` boolean) replaces `window.confirm()` for delete flows in card components. Pattern: show Delete/Cancel buttons inline on first click, call `mutate` on second. Avoids blocking the main thread and fits the design system.
+
+[2026-06-28] Always wrap `mutateAsync()` calls in try/catch with `toast.error(...)`. TanStack Query does NOT surface mutation errors to the UI automatically — uncaught rejections leave the modal/form in a pending state with no user feedback.
+
+[2026-06-28] `queryKeys` factory object (`client/src/lib/query-keys.ts`) eliminates magic query key strings across all hooks. Each key returns `as const` tuple — TanStack Query invalidations stay type-safe and typo-proof. Import the factory in any new hook instead of writing `["key", param]` inline.
+
+[2026-06-28] Next.js App Router `error.tsx` files at route level catch render-time exceptions before they bubble to the global boundary. Add one alongside every `page.tsx` that calls hooks or renders complex data. The `reset` prop re-renders the segment — pass it as `onRetry` to the existing `ErrorState` primitive. No extra library needed.
+
+[2026-06-28] `scripts/check-vendor-sync.sh` — `diff -rq` between `server/src/vendor/shared/` and `client/src/vendor/shared/` on every CI run surfaces drift immediately. Run it before any PR that touches shared contracts.
+
 [2026-06-26] Building a `run_id → RunSummary` Map in `FindingsTab` (via `useMemo`) and passing the matched `runSummary` as a prop to `ReviewRunAccordion` — clean way to correlate run cost data with a review without adding a new API call. `FindingsTab` already has both `runs: ReviewRecord[]` and `prRuns: RunSummary[]`.
 
 [2026-06-26] Co-locating format helpers (`formatCost`, `formatTokens`) inside the component file and NOT exporting them — they are display-only, not business logic, so no need for a shared utility.
 
 ## What Doesn't Work
 
+[2026-06-28] `Icon.ChevronUp` does not exist in the `@devdigest/ui` Icon namespace — the registry in `client/src/vendor/ui/icons.tsx` is explicit, not a full lucide re-export. Use `Icon.ArrowUp` / `Icon.ArrowDown` for vertical movement buttons. Always check `icons.tsx` before using any `Icon.*` name.
+
+[2026-06-28] Do NOT use `queryKeys.providerModels(undefined)` for prefix invalidation — it produces `["provider-models", undefined]` which only matches queries where provider IS undefined, not all provider-model queries. For prefix invalidation keep the raw array: `qc.invalidateQueries({ queryKey: ["provider-models"] })`. Add a comment so the next reader doesn't "fix" it with the factory.
+
 ## Codebase Patterns
+
+[2026-06-28] `useRunEvents` in `client/src/lib/hooks/reviews.ts` registers SSE event listeners explicitly per kind. When adding a new `RunEventKind` (e.g. `'skill'`), add it to the `for (const kind of [...])` array at line 198 — omitting it means events of that kind are never received in the browser even though the server emits them.
+
+[2026-06-28] Nav sections in `client/src/vendor/ui/nav.ts` are separate `NavGroup` entries in the `NAV` array. Current layout: WORKSPACE (Pull Requests) → AGENTS (Agents) → SKILL LAB (Skills). Adding a new top-level section = new `{ section, items }` entry; no Sidebar.tsx changes needed.
+
+[2026-06-28] Every `_components/Foo/` folder must have an `index.ts` with a named re-export (`export { Foo } from "./Foo"`). TypeScript module resolution requires it — omitting it causes `Cannot find module './_components/Foo'` even when the file exists. The agents module uses this pattern everywhere; follow it for all new component directories.
+
+[2026-06-28] Navigation for `/skills` was pre-wired before Lesson 2: `activeKeyFor()` in `app-shell/helpers.ts` already handles `pathname.startsWith("/skills")`, and `shell.json` already has `"nav.skills": "Skills"`. No nav changes needed when adding the Skills page — just create the route.
+
+[2026-06-28] `@devdigest/ui` exports a `Markdown` primitive — use it to render any markdown body content (skill bodies, system prompts, etc.). No need for `react-markdown` or custom renderers. Import from `@devdigest/ui` directly.
+
+[2026-06-28] `queryKeys.agentSkills(agentId)` is a separate key from `queryKeys.skills()` — intentional. Workspace skill list and per-agent skill links have independent cache lifetimes and different invalidation triggers. Invalidate `agentSkills(id)` on `useSetAgentSkills` mutations; invalidate `skills()` on create/update/delete of a skill itself.
+
+[2026-06-28] `client/src/vendor/shared/` lags behind `server/src/vendor/shared/` — confirmed drift as of 2026-06-28. Missing on the client: `openrouter` Provider value, `AgentManifest` schema, `AgentVersion`/`AgentVersionConfig` schemas, `CommitFile`/`CommitFilesPayload` types, `VcsProvider.sync()` and `VcsProvider.diffNameOnly()` methods. Do not use these types in new client code until the sync is done.
+
+[2026-06-28] No `error.tsx` files existed before this session. All route error states were handled via TanStack Query's `isError` flag + inline `ErrorState` renders — which only catches fetch errors, not render exceptions. Next.js App Router error boundaries (`error.tsx`) are separate and needed for both.
 
 [2026-06-26] The PR list grid (`GRID` in `constants.ts`) is a CSS grid template string used by both the header row and PR rows. Adding a column requires: (1) update `GRID` string, (2) add key to `COLUMN_KEYS`, (3) add cell to `PRRow.tsx`, (4) add translation key to `messages/en/prReview.json` under `list.columns`. Missing any one of these leaves the layout broken.
 
@@ -29,6 +61,14 @@
 [2026-06-26] Adding a non-optional field to a shared Zod schema used in test fixtures causes TS error: `Type 'undefined' is not assignable to type 'number | null'`. Fix: use `.nullish()` instead of `.nullable()` for fields computed server-side that old fixtures won't have.
 
 ## Session Notes
+
+[2026-06-28] Added `skill` RunEventKind (purple in LiveLogStream) so agent run logs visually distinguish "skills loaded" lines from generic info. Required 4 coordinated changes: `RunEventKind` enum in both vendor/shared copies, `LEVEL` map in run-logger.ts, `skill()` method on RunLogger, and the `for (const kind of [...])` listener array in useRunEvents. Forgetting any one of these causes silent drop.
+
+[2026-06-28] pr-self-review gate found and fixed: Toggle `onChange={() => {}}` in SkillsTab (broken enabled toggle), DI violation in SkillsService (direct `new SkillsRepository` instead of `container.skillsRepo`), three `mutateAsync` without try/catch, stale `selected` state in SkillsListView, `window.confirm` in SkillCard. All resolved; 129 server + 21 client tests green.
+
+[2026-06-28] Implemented Skills feature (Lesson 2): `/skills` page (card grid + Drawer preview + CreateSkillModal + ImportSkillModal), `client/src/lib/hooks/skills.ts` (7 hooks), `client/src/lib/parse-skill-frontmatter.ts` (pure YAML frontmatter parser — no deps), and AgentEditor Skills tab with linked skill ordering. Import flow: `.md` → FileReader text → `parseSkillMarkdown`; `.zip` → manual ArrayBuffer ZIP parser (store-only, deflate unsupported). Trust warning shown on all imports before save. All 21 existing client tests pass.
+
+[2026-06-28] Frontend code review session using skills `react-best-practices`, `next-best-practices`, `react-component-structure`. Applied 3 low-effort improvements: (1) `queryKeys` factory in `client/src/lib/query-keys.ts` — all hooks updated; (2) `error.tsx` added to `pulls/`, `pulls/[number]/`, and `agents/` routes; (3) `scripts/check-vendor-sync.sh` created and caught real drift in vendor/shared (client missing OpenRouter + AgentManifest + AgentVersion types). Remaining: prop drilling in PRDetailPage (10+ props to FindingsTab), RSC for static shell components, page-level tests.
 
 [2026-06-26] Implemented Run Cost Badge client side. New shared component `RunCostBadge` (`client/src/components/RunCostBadge/index.tsx`) with `compact` and `detailed` variants. Compact for PR list column, detailed for VerdictBanner. Format rule: ≥3 significant digits, `—` for null, never `$0.00`.
 
