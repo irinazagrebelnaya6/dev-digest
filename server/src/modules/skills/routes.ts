@@ -102,8 +102,10 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     { schema: { params: VersionParams } },
     async (req) => {
       const { workspaceId } = await getContext(app.container, req);
+      req.log.info({ skillId: req.params.id, version: req.params.version }, 'restore skill version');
       const skill = await service.restore(workspaceId, req.params.id, req.params.version);
       if (!skill) throw new NotFoundError('Skill or version not found');
+      req.log.info({ skillId: skill.id, newVersion: skill.version, bodyLen: skill.body.length }, 'restore ok');
       return skill;
     },
   );

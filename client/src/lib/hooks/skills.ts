@@ -103,9 +103,11 @@ export function useRestoreSkillVersion(skillId: string) {
       // content-type: application/json which Fastify may reject without a body schema.
       api.post<Skill>(`/skills/${skillId}/versions/${version}/restore`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.skill(skillId) });
+      // refetchQueries forces an immediate refetch (not just marks-stale)
+      // so the Config tab body and Versions list update before the user switches tabs.
+      qc.refetchQueries({ queryKey: queryKeys.skill(skillId) });
+      qc.refetchQueries({ queryKey: queryKeys.skillVersions(skillId) });
       qc.invalidateQueries({ queryKey: queryKeys.skills() });
-      qc.invalidateQueries({ queryKey: queryKeys.skillVersions(skillId) });
       qc.invalidateQueries({ queryKey: queryKeys.skillStats(skillId) });
     },
   });
