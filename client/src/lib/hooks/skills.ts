@@ -64,6 +64,49 @@ export function useDeleteSkill() {
   });
 }
 
+export interface SkillStats {
+  agents_count: number;
+  version_count: number;
+  created_at: string;
+}
+
+export interface SkillVersionEntry {
+  skill_id: string;
+  version: number;
+  body: string;
+  created_at: string;
+}
+
+export function useSkillStats(id: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.skillStats(id),
+    queryFn: () => api.get<SkillStats>(`/skills/${id}/stats`),
+    enabled: !!id,
+  });
+}
+
+export function useSkillVersions(id: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.skillVersions(id),
+    queryFn: () => api.get<SkillVersionEntry[]>(`/skills/${id}/versions`),
+    enabled: !!id,
+  });
+}
+
+export function useRestoreSkillVersion(skillId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (version: number) =>
+      api.post<import("@devdigest/shared").Skill>(`/skills/${skillId}/versions/${version}/restore`, {}),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: queryKeys.skill(skillId) });
+      qc.invalidateQueries({ queryKey: queryKeys.skills() });
+      qc.invalidateQueries({ queryKey: queryKeys.skillVersions(skillId) });
+      qc.setQueryData(queryKeys.skill(skillId), data);
+    },
+  });
+}
+
 /** Linked skills for an agent as AgentSkillLink[] (ordered). */
 export function useAgentSkills(agentId: string | null | undefined) {
   return useQuery({

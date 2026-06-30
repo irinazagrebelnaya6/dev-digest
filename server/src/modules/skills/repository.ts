@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { SkillSource, SkillType } from '@devdigest/shared';
@@ -128,6 +128,24 @@ export class SkillsRepository {
         and(eq(t.skillVersions.skillId, skillId), eq(t.skillVersions.version, version)),
       );
     return row;
+  }
+
+  /** Count how many agents have this skill linked. */
+  async countAgentsUsingSkill(skillId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ c: count() })
+      .from(t.agentSkills)
+      .where(eq(t.agentSkills.skillId, skillId));
+    return Number(row?.c ?? 0);
+  }
+
+  /** Count body snapshots for a skill. */
+  async countVersions(skillId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ c: count() })
+      .from(t.skillVersions)
+      .where(eq(t.skillVersions.skillId, skillId));
+    return Number(row?.c ?? 0);
   }
 
   private async snapshotVersion(skillId: string, version: number, body: string): Promise<void> {

@@ -14,13 +14,15 @@ const VersionParams = z.object({
 
 /**
  * A1 — skills module.
- *   GET    /skills                        → list (workspace-scoped)
- *   GET    /skills/:id                    → one skill
- *   POST   /skills                        → create
- *   PUT    /skills/:id                    → update (body change bumps version)
- *   DELETE /skills/:id                    → delete
- *   GET    /skills/:id/versions           → body history (newest first)
- *   GET    /skills/:id/versions/:version  → one body snapshot
+ *   GET    /skills                                 → list (workspace-scoped)
+ *   GET    /skills/:id                             → one skill
+ *   POST   /skills                                 → create
+ *   PUT    /skills/:id                             → update (body change bumps version)
+ *   DELETE /skills/:id                             → delete
+ *   GET    /skills/:id/stats                       → usage stats (agents_count, version_count)
+ *   GET    /skills/:id/versions                    → body history (newest first)
+ *   GET    /skills/:id/versions/:version           → one body snapshot
+ *   POST   /skills/:id/versions/:version/restore   → restore a past body (creates new version)
  */
 export default async function skillsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
@@ -70,6 +72,13 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     return { ok: true };
   });
 
+  app.get('/skills/:id/stats', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    const stats = await service.stats(workspaceId, req.params.id);
+    if (!stats) throw new NotFoundError('Skill not found');
+    return stats;
+  });
+
   app.get('/skills/:id/versions', { schema: { params: IdParams } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);
     const versions = await service.listVersions(workspaceId, req.params.id);
@@ -85,6 +94,17 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
       const version = await service.getVersion(workspaceId, req.params.id, req.params.version);
       if (!version) throw new NotFoundError('Skill version not found');
       return version;
+    },
+  );
+
+  app.post(
+    '/skills/:id/versions/:version/restore',
+    { schema: { params: VersionParams } },
+    async (req) => {
+      const { workspaceId } = await getContext(app.container, req);
+      const skill = await service.restore(workspaceId, req.params.id, req.params.version);
+      if (!skill) throw new NotFoundError('Skill or version not found');
+      return skill;
     },
   );
 }

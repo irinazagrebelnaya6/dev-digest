@@ -220,6 +220,91 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
     if (!existing) await db.insert(t.agents).values(a);
   }
 
+  // ---- demo skills (A1, L02) ----
+  const seedSkills: Array<typeof t.skills.$inferInsert & { _name: string }> = [
+    {
+      _name: 'Test Quality Reviewer',
+      workspaceId,
+      name: 'Test Quality Reviewer',
+      description: 'Audits test coverage, assertion quality, and flakiness risks in a diff.',
+      type: 'rubric',
+      source: 'manual',
+      version: 1,
+      enabled: true,
+      body: `## Test Quality Rubric
+
+### Coverage
+- Every new public function must have at least one positive and one negative test.
+- Deleted branches or conditions must have corresponding test removals — orphaned tests are noise.
+
+### Assertions
+- Each test must assert a **specific value or behaviour**, not just "no error thrown".
+- Avoid \`expect(result).toBeTruthy()\` — use \`expect(result).toBe(42)\` or equivalent.
+
+### Flakiness
+- No \`setTimeout\` / \`sleep\` in test bodies. Use \`vi.useFakeTimers()\` or wait for a Promise.
+- No global state mutations without teardown in \`afterEach\`.
+
+### Expected output
+\`\`\`
+MISSING TEST — src/lib/parser.ts:34
+  Function parseDate() added but has no unit test.
+  Suggested file: src/lib/parser.test.ts
+\`\`\``,
+    },
+    {
+      _name: 'API Contract Reviewer',
+      workspaceId,
+      name: 'API Contract Reviewer',
+      description: 'Flags breaking changes, schema drift, and semver violations in API diffs.',
+      type: 'security',
+      source: 'manual',
+      version: 1,
+      enabled: true,
+      body: `## API Contract Reviewer
+
+### Breaking changes
+- Removed or renamed response fields are **always breaking** — flag with CRITICAL.
+- Removed endpoints must return \`410 Gone\` with an upgrade hint instead of disappearing.
+- Changing an HTTP method for the same path is breaking.
+
+### New required params
+- Adding a required field to a POST/PUT body without a default breaks existing callers.
+- Fix: add \`.optional().default(value)\` or bump the major version.
+
+### Semver discipline
+- Patch: bug fix with no contract change.
+- Minor: additive change (new optional field, new endpoint).
+- Major: any breaking change listed above.
+
+### Deprecation policy
+- Fields to be removed must carry a \`@deprecated\` JSDoc comment for ≥1 minor version.
+- The deprecation must appear in the changelog.
+
+### Expected output
+\`\`\`
+BREAKING CHANGE — src/routes/users.ts:18
+  Removed field \`userId\` from GET /users response.
+  Callers reading userId will silently receive undefined.
+  Fix: keep field + add accountId, deprecate userId in next minor.
+\`\`\``,
+    },
+  ];
+
+  for (const { _name, ...skill } of seedSkills) {
+    const [existing] = await db
+      .select()
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, _name)));
+    if (!existing) {
+      const [row] = await db.insert(t.skills).values(skill).returning();
+      // snapshot version 1
+      await db.insert(t.skillVersions)
+        .values({ skillId: row!.id, version: 1, body: skill.body })
+        .onConflictDoNothing();
+    }
+  }
+
   return { workspaceId, userId };
 }
 

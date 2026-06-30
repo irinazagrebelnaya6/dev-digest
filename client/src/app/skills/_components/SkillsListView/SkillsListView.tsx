@@ -1,35 +1,30 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Button, Dropdown, EmptyState, ErrorState, Icon, Skeleton } from "@devdigest/ui";
 import { AppShell } from "../../../../components/app-shell";
 import { useSkills, useUpdateSkill } from "../../../../lib/hooks/skills";
-import type { Skill } from "@devdigest/shared";
 import { SkillCard } from "./_components/SkillCard";
-import { SkillPreviewDrawer } from "./_components/SkillPreviewDrawer";
 import { CreateSkillModal } from "./_components/CreateSkillModal";
 import { ImportSkillModal } from "./_components/ImportSkillModal";
 import { filterSkills } from "./helpers";
 import { s } from "./styles";
 
 export function SkillsListView() {
+  const router = useRouter();
   const { data: skills, isLoading, isError, refetch } = useSkills();
   const update = useUpdateSkill();
   const [search, setSearch] = React.useState("");
-  const [selected, setSelected] = React.useState<Skill | null>(null);
   const [creating, setCreating] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
 
   const list = filterSkills(skills ?? [], search);
-  const selectedSkill = selected ? (skills ?? []).find((s) => s.id === selected.id) ?? selected : null;
 
   return (
     <AppShell crumb={[{ label: "Skills Lab" }, { label: "Skills" }]}>
       {creating && <CreateSkillModal onClose={() => setCreating(false)} />}
       {importing && <ImportSkillModal onClose={() => setImporting(false)} />}
-      {selectedSkill && (
-        <SkillPreviewDrawer skill={selectedSkill} onClose={() => setSelected(null)} />
-      )}
 
       <div style={s.page}>
         <div style={s.header}>
@@ -85,8 +80,7 @@ export function SkillsListView() {
               <SkillCard
                 key={sk.id}
                 skill={sk}
-                active={selected?.id === sk.id}
-                onClick={() => setSelected(sk)}
+                onClick={() => router.push(`/skills/${sk.id}`)}
                 onToggle={(enabled: boolean) => update.mutate({ id: sk.id, patch: { enabled } })}
               />
             ))}

@@ -23,6 +23,8 @@ export const queryKeys = {
   // Skills
   skills: () => ["skills"] as const,
   skill: (id: string | null | undefined) => ["skill", id] as const,
+  skillStats: (id: string | null | undefined) => ["skill-stats", id] as const,
+  skillVersions: (id: string | null | undefined) => ["skill-versions", id] as const,
   agentSkills: (agentId: string | null | undefined) => ["agent-skills", agentId] as const,
 
   // Conventions

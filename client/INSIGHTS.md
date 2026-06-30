@@ -72,6 +72,14 @@
 
 ## Session Notes
 
+[2026-06-30] Lesson 3 reviewer fixes — client side. Created `/skills/[id]/page.tsx` (Skill Editor) with left sidebar + 4 tabs: Config, Preview, Stats, Versions. Modelled on `/agents/[id]/page.tsx`. Config tab uses local draft state synced via `useEffect` on `skillId` change — required because Next.js reuses the page component across skill navigations without unmounting. Restore button in Versions tab calls `useRestoreSkillVersion` which creates a new body version (not history mutation).
+
+[2026-06-30] `Select` is not exported from `@devdigest/ui` — use a native `<select>` element styled with CSS vars (`var(--border)`, `var(--bg-input)`, `var(--text)`) for type dropdowns. Confirmed by checking `client/src/vendor/ui/primitives/` exports.
+
+[2026-06-30] When adding tabs that reference icon names, check the allowed union in `vendor/ui/kit` Tabs component — `BarChart2` is not in the union but `BarChart` and `History` are. The TypeScript error message lists the valid names exactly; read it before guessing.
+
+[2026-06-30] `SkillsListView` now navigates to `/skills/${sk.id}` on card click instead of opening the preview drawer. Removed `selected` state and `SkillPreviewDrawer` import from the list view — preview is available as the "Preview" tab in the editor. Unused `Skill` import removed to keep lint clean.
+
 [2026-06-28] Step 10/11 — URL import + plugin packaging. Added "From URL" tab to `ImportSkillModal`: `fetch()` → `parseSkillMarkdown()` → prefill. Switching tabs resets `parsed` state and clears both error slots — critical so the "Import" button doesn't stay enabled after switching. Created `plugin.json` + `marketplace.json` at repo root listing all 4 API Contract Reviewer skills.
 
 [2026-06-28] Conventions Lesson 3 — inline edit + skill preview/edit modal. CandidateCard gains an Edit button (Icon.Edit) that toggles an inline edit mode: textarea for rule, input for category, Save/Cancel. BuildSkillModal expanded to 640 px width with editable Name/Description/Body fields and a client-side generated markdown preview (via local `renderSkillBody`). `useBuildConventionsSkill` now passes name/description/body overrides to the server. Fixed double-toast bug: removed `toast.error()` from the `saveEdit` catch block.
