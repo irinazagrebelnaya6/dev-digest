@@ -48,6 +48,8 @@ export function useUpdateSkill() {
     mutationFn: ({ id, patch }: UpdateSkillInput) => api.put<Skill>(`/skills/${id}`, patch),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: queryKeys.skills() });
+      qc.invalidateQueries({ queryKey: queryKeys.skillVersions(data.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.skillStats(data.id) });
       qc.setQueryData(queryKeys.skill(data.id), data);
     },
   });
@@ -97,12 +99,14 @@ export function useRestoreSkillVersion(skillId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (version: number) =>
-      api.post<import("@devdigest/shared").Skill>(`/skills/${skillId}/versions/${version}/restore`, {}),
-    onSuccess: (data) => {
+      // No body — all input comes from URL params. Sending {} would set
+      // content-type: application/json which Fastify may reject without a body schema.
+      api.post<Skill>(`/skills/${skillId}/versions/${version}/restore`),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.skill(skillId) });
       qc.invalidateQueries({ queryKey: queryKeys.skills() });
       qc.invalidateQueries({ queryKey: queryKeys.skillVersions(skillId) });
-      qc.setQueryData(queryKeys.skill(skillId), data);
+      qc.invalidateQueries({ queryKey: queryKeys.skillStats(skillId) });
     },
   });
 }
