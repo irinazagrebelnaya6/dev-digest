@@ -137,6 +137,7 @@ export default function SkillEditorPage() {
                   name={skill.name}
                   description={skill.description}
                   type={skill.type}
+                  body={skill.body}
                   enabled={skill.enabled}
                   onSave={(patch) =>
                     update.mutateAsync({ id, patch }).then(() => toast.success("Saved")).catch(() => toast.error("Save failed"))
@@ -162,6 +163,7 @@ function ConfigTab({
   name,
   description,
   type,
+  body,
   enabled,
   onSave,
   saving,
@@ -170,21 +172,24 @@ function ConfigTab({
   name: string;
   description: string;
   type: SkillType;
+  body: string;
   enabled: boolean;
-  onSave: (patch: { name?: string; description?: string; type?: SkillType; enabled?: boolean }) => void;
+  onSave: (patch: { name?: string; description?: string; type?: SkillType; body?: string; enabled?: boolean }) => void;
   saving: boolean;
 }) {
   const [draftName, setDraftName] = React.useState(name);
   const [draftDesc, setDraftDesc] = React.useState(description);
   const [draftType, setDraftType] = React.useState<SkillType>(type);
+  const [draftBody, setDraftBody] = React.useState(body);
   const [draftEnabled, setDraftEnabled] = React.useState(enabled);
 
   React.useEffect(() => {
     setDraftName(name);
     setDraftDesc(description);
     setDraftType(type);
+    setDraftBody(body);
     setDraftEnabled(enabled);
-  }, [skillId, name, description, type, enabled]);
+  }, [skillId, name, description, type, body, enabled]);
 
   return (
     <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -240,6 +245,13 @@ function ConfigTab({
         </select>
       </FormField>
 
+      <FormField
+        label="Body (Markdown)"
+        hint="Changing the body creates a new immutable version snapshot."
+      >
+        <Textarea value={draftBody} onChange={setDraftBody} rows={18} mono />
+      </FormField>
+
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ fontSize: 14 }}>Enabled</span>
         <Toggle on={draftEnabled} onChange={setDraftEnabled} size={14} />
@@ -249,7 +261,7 @@ function ConfigTab({
         <Button
           kind="primary"
           onClick={() =>
-            onSave({ name: draftName, description: draftDesc, type: draftType, enabled: draftEnabled })
+            onSave({ name: draftName, description: draftDesc, type: draftType, body: draftBody, enabled: draftEnabled })
           }
           disabled={saving}
         >
