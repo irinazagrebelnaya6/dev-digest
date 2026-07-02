@@ -15,6 +15,8 @@ export function SkillsTab({ agent }: { agent: Agent }) {
   const setSkills = useSetAgentSkills(agent.id);
   const updateSkill = useUpdateSkill();
   const [adding, setAdding] = React.useState(false);
+  const dragIdx = React.useRef<number | null>(null);
+  const [dragOver, setDragOver] = React.useState<number | null>(null);
 
   const skillMap = React.useMemo(
     () => new Map((allSkills ?? []).map((s) => [s.id, s])),
@@ -26,20 +28,6 @@ export function SkillsTab({ agent }: { agent: Agent }) {
     [links],
   );
 
-  const moveUp = (idx: number) => {
-    if (idx === 0) return;
-    const ids = orderedLinks.map((l) => l.skill_id);
-    [ids[idx - 1], ids[idx]] = [ids[idx]!, ids[idx - 1]!];
-    setSkills.mutate(ids, { onSuccess: () => toast.success("Order updated") });
-  };
-
-  const moveDown = (idx: number) => {
-    if (idx === orderedLinks.length - 1) return;
-    const ids = orderedLinks.map((l) => l.skill_id);
-    [ids[idx], ids[idx + 1]] = [ids[idx + 1]!, ids[idx]!];
-    setSkills.mutate(ids, { onSuccess: () => toast.success("Order updated") });
-  };
-
   const remove = (skillId: string) => {
     const ids = orderedLinks.map((l) => l.skill_id).filter((id) => id !== skillId);
     setSkills.mutate(ids, { onSuccess: () => toast.success("Skill removed") });
@@ -48,6 +36,19 @@ export function SkillsTab({ agent }: { agent: Agent }) {
   const addSkill = (skillId: string): void => {
     const ids = [...orderedLinks.map((l) => l.skill_id), skillId];
     setSkills.mutate(ids, { onSuccess: () => toast.success("Skill linked") });
+  };
+
+  const handleDragStart = (idx: number) => { dragIdx.current = idx; };
+
+  const handleDrop = (toIdx: number) => {
+    const from = dragIdx.current;
+    dragIdx.current = null;
+    setDragOver(null);
+    if (from === null || from === toIdx) return;
+    const ids = orderedLinks.map((l) => l.skill_id);
+    const [moved] = ids.splice(from, 1);
+    ids.splice(toIdx, 0, moved!);
+    setSkills.mutate(ids, { onSuccess: () => toast.success("Order updated") });
   };
 
   if (isLoading) return <div style={s.wrap}><Skeleton height={80} /><Skeleton height={80} /></div>;
@@ -90,8 +91,23 @@ export function SkillsTab({ agent }: { agent: Agent }) {
           {orderedLinks.map((link, idx) => {
             const skill = skillMap.get(link.skill_id);
             if (!skill) return null;
+            const isOver = dragOver === idx;
             return (
-              <div key={link.skill_id} style={s.row}>
+              <div
+                key={link.skill_id}
+                draggable
+                onDragStart={() => handleDragStart(idx)}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(idx); }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={() => handleDrop(idx)}
+                style={{
+                  ...s.row,
+                  outline: isOver ? "2px solid var(--accent)" : undefined,
+                  opacity: dragIdx.current === idx ? 0.5 : 1,
+                  cursor: "grab",
+                }}
+              >
+                <Icon.Menu size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                 <div style={s.order}>{idx + 1}</div>
                 <div style={s.info}>
                   <span style={s.name}>{skill.name}</span>
@@ -108,22 +124,6 @@ export function SkillsTab({ agent }: { agent: Agent }) {
                       )
                     }
                   />
-                  <button
-                    onClick={() => moveUp(idx)}
-                    disabled={idx === 0 || setSkills.isPending}
-                    aria-label="Move up"
-                    style={s.iconBtn}
-                  >
-                    <Icon.ArrowUp size={14} />
-                  </button>
-                  <button
-                    onClick={() => moveDown(idx)}
-                    disabled={idx === orderedLinks.length - 1 || setSkills.isPending}
-                    aria-label="Move down"
-                    style={s.iconBtn}
-                  >
-                    <Icon.ArrowDown size={14} />
-                  </button>
                   <button
                     onClick={() => remove(link.skill_id)}
                     disabled={setSkills.isPending}

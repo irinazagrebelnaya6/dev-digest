@@ -34,9 +34,19 @@
 
 ## Recurring Errors & Fixes
 
+[2026-06-28] Drizzle `db.update().set(obj)` rejects a plain `{ status?: string }` when the column is typed as a text enum — TypeScript sees the types as incompatible. Fix: use conditional spreads the way `skills/repository.ts:90-96` does: `{ ...(fields.status !== undefined ? { status: fields.status } : {}) }`. The spread produces a type that satisfies the enum column type.
+
 [2026-06-26] Adding a required field to a shared Zod schema breaks existing test fixtures that don't include it. Fix: use `.nullish()` (not `.nullable()`) for fields that are computed externally and not stored in DB — the type becomes `T | null | undefined`, which is backwards-compatible with old fixtures.
 
 ## Session Notes
+
+[2026-06-30] Lesson 3 reviewer fixes — server side. Added `stats` + `restore` endpoints to skills module. `GET /skills/:id/stats` returns `agents_count` (COUNT from `agent_skills`), `version_count` (COUNT from `skill_versions`), `created_at`. `POST /skills/:id/versions/:version/restore` reuses `service.update()` with the snapshot body — this correctly bumps the version and creates a new snapshot rather than mutating history. Added `countAgentsUsingSkill()` and `countVersions()` to `SkillsRepository` using Drizzle `count()` helper (requires explicit import from `drizzle-orm`).
+
+[2026-06-30] `skill_count` on Agent list: added `skillCountsForWorkspace(workspaceId)` to `AgentsRepository` — one query with `GROUP BY agent_id`, returns `Map<string, number>`. `AgentsService.list()` runs it in parallel with `repo.list()` via `Promise.all`, then merges with `{ ...toAgentDto(row), skill_count: counts.get(row.id) ?? 0 }`. No extra round-trip per agent. Added optional `skill_count` field to shared `Agent` Zod schema in both vendor copies.
+
+[2026-06-30] Seed now inserts Test Quality Reviewer (rubric) and API Contract Reviewer (security) as demo skills. Pattern: `_name` field used as lookup key to check existence, then `skills` insert + manual `skill_versions` snapshot for version 1 (mirrors what `SkillsRepository.insert()` does). The underscore field is destructured out before passing to `db.insert()` to avoid a column name mismatch.
+
+[2026-06-28] Conventions Lesson 3 — inline edit + skill preview. Added `UpdateConventionBody` (optional status/rule/category) to shared contracts; `updateFields` to repo (conditional spreads for Drizzle enum columns); `updateCandidate` to service. PATCH `/conventions/:id` migrated from `UpdateConventionStatusBody` to `UpdateConventionBody`. `POST /repos/:id/conventions/build-skill` now accepts optional `name`/`description`/`body` overrides — if provided they replace the auto-generated values from `renderSkillBody`. Both vendor/shared copies updated in sync.
 
 [2026-06-28] Added `skill` RunEventKind to expose which skills an agent loads in the live log. Server emits via `runLog.skill(...)` in run-executor.ts:189. The message format is "Loaded N skill(s): name1, name2" or "No skills linked — running with system prompt only". Both branches use the new kind so the client can style them distinctly (purple).
 

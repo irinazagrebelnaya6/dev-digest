@@ -20,6 +20,12 @@ export interface UpdateSkillInput {
   enabled?: boolean;
 }
 
+export interface SkillStatsDto {
+  agents_count: number;
+  version_count: number;
+  created_at: string;
+}
+
 export interface SkillVersionDto {
   skill_id: string;
   version: number;
@@ -68,6 +74,29 @@ export class SkillsService {
 
   async delete(workspaceId: string, id: string): Promise<boolean> {
     return this.repo.deleteById(workspaceId, id);
+  }
+
+  async stats(workspaceId: string, id: string): Promise<SkillStatsDto | undefined> {
+    const skill = await this.repo.getById(workspaceId, id);
+    if (!skill) return undefined;
+    const [agentsCount, versionCount] = await Promise.all([
+      this.repo.countAgentsUsingSkill(id),
+      this.repo.countVersions(id),
+    ]);
+    return {
+      agents_count: agentsCount,
+      version_count: versionCount,
+      created_at: skill.createdAt.toISOString(),
+    };
+  }
+
+  /** Restore a previous body snapshot — creates a new version with the old body. */
+  async restore(workspaceId: string, id: string, version: number): Promise<Skill | undefined> {
+    const skill = await this.repo.getById(workspaceId, id);
+    if (!skill) return undefined;
+    const snapshot = await this.repo.getVersion(id, version);
+    if (!snapshot) return undefined;
+    return this.update(workspaceId, id, { body: snapshot.body });
   }
 
   async listVersions(workspaceId: string, skillId: string): Promise<SkillVersionDto[] | undefined> {

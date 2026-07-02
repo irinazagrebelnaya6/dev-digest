@@ -1,0 +1,13 @@
+[
+  {
+    "name": "api-contract-reviewer-skills",
+    "version": "1.0.0",
+    "description": "Four skills that teach an agent to review API contracts for breaking changes, schema drift, semver discipline, and deprecation policy.",
+    "skills": [
+      ".claude/skills/api-contract-reviewer/breaking-change.md",
+      ".claude/skills/api-contract-reviewer/response-schema.md",
+      ".claude/skills/api-contract-reviewer/semver-discipline.md",
+      ".claude/skills/api-contract-reviewer/deprecation-policy.md"
+    ]
+  }
+]

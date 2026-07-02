@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Button, Modal, FormField, TextInput, SelectInput, Textarea } from "@devdigest/ui";
+import { Tabs } from "../../../../../../vendor/ui/kit";
 import type { SkillType } from "@devdigest/shared";
 import { useCreateSkill } from "../../../../../../lib/hooks/skills";
 import { parseSkillMarkdown } from "../../../../../../lib/parse-skill-frontmatter";
@@ -54,6 +55,26 @@ async function extractMdFromZip(file: File): Promise<string | null> {
   return null;
 }
 
+const IMPORT_TABS = [
+  { key: "file", label: "From file", icon: "Upload" as const },
+  { key: "url", label: "From URL", icon: "Link" as const },
+];
+
+const TRUST_WARNING = (
+  <div
+    style={{
+      padding: "10px 14px",
+      borderRadius: 7,
+      background: "var(--warn-bg, #fef9c3)",
+      border: "1px solid var(--warn, #ca8a04)",
+      fontSize: 13,
+      color: "var(--warn-text, #713f12)",
+    }}
+  >
+    ⚠️ This skill will be injected as instructions into your agent&apos;s prompt. Only import skills you trust.
+  </div>
+);
+
 export function ImportSkillModal({
   onClose,
   onImported,
@@ -63,12 +84,32 @@ export function ImportSkillModal({
 }) {
   const create = useCreateSkill();
   const toast = useToast();
+  const [tab, setTab] = React.useState<"file" | "url">("file");
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [type, setType] = React.useState<SkillType>("custom");
   const [body, setBody] = React.useState("");
   const [parsed, setParsed] = React.useState(false);
   const [fileError, setFileError] = React.useState<string | null>(null);
+  const [url, setUrl] = React.useState("");
+  const [urlLoading, setUrlLoading] = React.useState(false);
+  const [urlError, setUrlError] = React.useState<string | null>(null);
+
+  const applyParsed = (text: string) => {
+    const p = parseSkillMarkdown(text);
+    if (p.name) setName(p.name);
+    if (p.description) setDescription(p.description);
+    if (p.type) setType(p.type);
+    setBody(p.body);
+    setParsed(true);
+  };
+
+  const handleTabChange = (k: string) => {
+    setTab(k as "file" | "url");
+    setParsed(false);
+    setFileError(null);
+    setUrlError(null);
+  };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -90,12 +131,30 @@ export function ImportSkillModal({
       return;
     }
 
-    const parsed = parseSkillMarkdown(text);
-    if (parsed.name) setName(parsed.name);
-    if (parsed.description) setDescription(parsed.description);
-    if (parsed.type) setType(parsed.type);
-    setBody(parsed.body);
-    setParsed(true);
+    applyParsed(text);
+  };
+
+  const handleFetchUrl = async () => {
+    setUrlError(null);
+    const trimmed = url.trim();
+    if (!trimmed) { setUrlError("Please enter a URL."); return; }
+    let parsed: URL;
+    try { parsed = new URL(trimmed); } catch {
+      setUrlError("Invalid URL."); return;
+    }
+    if (parsed.protocol !== "https:") { setUrlError("Only HTTPS URLs are supported."); return; }
+
+    setUrlLoading(true);
+    try {
+      const res = await fetch(trimmed);
+      if (!res.ok) { setUrlError(`Fetch failed: ${res.status} ${res.statusText}`); return; }
+      const text = await res.text();
+      applyParsed(text);
+    } catch {
+      setUrlError("Could not fetch the URL. Check the address and try again.");
+    } finally {
+      setUrlLoading(false);
+    }
   };
 
   const submit = async () => {
@@ -118,8 +177,8 @@ export function ImportSkillModal({
   return (
     <Modal
       width={640}
-      title="Import skill from file"
-      subtitle="Upload a .md or .zip containing a skill definition."
+      title="Import skill"
+      subtitle="Load a skill definition from a file or a URL."
       onClose={onClose}
       footer={
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -135,50 +194,67 @@ export function ImportSkillModal({
         </div>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <FormField label="File (.md or .zip)" required>
-          <input
-            type="file"
-            accept=".md,.zip"
-            onChange={handleFile}
-            style={{ fontSize: 13, color: "var(--text-primary)" }}
-          />
-          {fileError && (
-            <p style={{ fontSize: 12, color: "var(--crit)", marginTop: 4 }}>{fileError}</p>
-          )}
-        </FormField>
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+        <Tabs tabs={IMPORT_TABS} value={tab} onChange={handleTabChange} pad="0" />
 
-        {parsed && (
-          <>
-            <FormField label="Name" required>
-              <TextInput value={name} onChange={setName} placeholder="Skill name" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 16 }}>
+          {tab === "file" && (
+            <FormField label="File (.md or .zip)" required>
+              <input
+                type="file"
+                accept=".md,.zip"
+                onChange={handleFile}
+                style={{ fontSize: 13, color: "var(--text-primary)" }}
+              />
+              {fileError && (
+                <p style={{ fontSize: 12, color: "var(--crit)", marginTop: 4 }}>{fileError}</p>
+              )}
             </FormField>
+          )}
+
+          {tab === "url" && (
             <FormField
-              label="Description"
-              hint="Describe what this skill does in one sentence. Written directively — this becomes the instruction to the agent."
+              label="Raw URL to .md skill file"
+              required
+              hint="Paste a direct link to a raw Markdown file, e.g. a GitHub raw URL."
             >
-              <TextInput value={description} onChange={setDescription} placeholder="e.g. Flags tests that mock business logic." />
+              <div style={{ display: "flex", gap: 8 }}>
+                <TextInput
+                  value={url}
+                  onChange={setUrl}
+                  placeholder="https://raw.githubusercontent.com/…/skill.md"
+                />
+                <Button kind="secondary" size="sm" onClick={handleFetchUrl} disabled={urlLoading}>
+                  {urlLoading ? "Loading…" : "Load"}
+                </Button>
+              </div>
+              {urlError && (
+                <p style={{ fontSize: 12, color: "var(--crit)", marginTop: 4 }}>{urlError}</p>
+              )}
             </FormField>
-            <FormField label="Type">
-              <SelectInput value={type} onChange={(v) => setType(v as SkillType)} options={TYPE_OPTIONS} />
-            </FormField>
-            <FormField label="Body (preview)" hint="You may edit before importing.">
-              <Textarea value={body} onChange={setBody} rows={12} mono />
-            </FormField>
-            <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: 7,
-                background: "var(--warn-bg, #fef9c3)",
-                border: "1px solid var(--warn, #ca8a04)",
-                fontSize: 13,
-                color: "var(--warn-text, #713f12)",
-              }}
-            >
-              ⚠️ This skill will be injected as instructions into your agent&apos;s prompt. Only import skills you trust.
-            </div>
-          </>
-        )}
+          )}
+
+          {parsed && (
+            <>
+              <FormField label="Name" required>
+                <TextInput value={name} onChange={setName} placeholder="Skill name" />
+              </FormField>
+              <FormField
+                label="Description"
+                hint="Describe what this skill does in one sentence. Written directively — this becomes the instruction to the agent."
+              >
+                <TextInput value={description} onChange={setDescription} placeholder="e.g. Flags tests that mock business logic." />
+              </FormField>
+              <FormField label="Type">
+                <SelectInput value={type} onChange={(v) => setType(v as SkillType)} options={TYPE_OPTIONS} />
+              </FormField>
+              <FormField label="Body (preview)" hint="You may edit before importing.">
+                <Textarea value={body} onChange={setBody} rows={12} mono />
+              </FormField>
+              {TRUST_WARNING}
+            </>
+          )}
+        </div>
       </div>
     </Modal>
   );

@@ -48,6 +48,8 @@ export function useUpdateSkill() {
     mutationFn: ({ id, patch }: UpdateSkillInput) => api.put<Skill>(`/skills/${id}`, patch),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: queryKeys.skills() });
+      qc.invalidateQueries({ queryKey: queryKeys.skillVersions(data.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.skillStats(data.id) });
       qc.setQueryData(queryKeys.skill(data.id), data);
     },
   });
@@ -60,6 +62,59 @@ export function useDeleteSkill() {
     onSuccess: (_d, id) => {
       qc.invalidateQueries({ queryKey: queryKeys.skills() });
       qc.removeQueries({ queryKey: queryKeys.skill(id) });
+    },
+  });
+}
+
+export interface SkillStats {
+  agents_count: number;
+  version_count: number;
+  created_at: string;
+}
+
+export interface SkillVersionEntry {
+  skill_id: string;
+  version: number;
+  body: string;
+  created_at: string;
+}
+
+export function useSkillStats(id: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.skillStats(id),
+    queryFn: () => api.get<SkillStats>(`/skills/${id}/stats`),
+    enabled: !!id,
+  });
+}
+
+export function useSkillVersions(id: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.skillVersions(id),
+    queryFn: () => api.get<SkillVersionEntry[]>(`/skills/${id}/versions`),
+    enabled: !!id,
+  });
+}
+
+export function useRestoreSkillVersion(skillId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (version: number) =>
+      // No body — all input comes from URL params. Sending {} would set
+      // content-type: application/json which Fastify may reject without a body schema.
+      api.post<Skill>(`/skills/${skillId}/versions/${version}/restore`),
+    onSuccess: (data) => {
+      // Update skill synchronously so ConfigTab body is correct immediately.
+      qc.setQueryData(queryKeys.skill(skillId), data);
+      // Prepend the new version entry so the "current" badge appears in the
+      // Versions tab without waiting for the async refetch to complete.
+      const prev = qc.getQueryData<SkillVersionEntry[]>(queryKeys.skillVersions(skillId)) ?? [];
+      qc.setQueryData(queryKeys.skillVersions(skillId), [
+        { skill_id: skillId, version: data.version, body: data.body, created_at: new Date().toISOString() },
+        ...prev,
+      ]);
+      qc.invalidateQueries({ queryKey: queryKeys.skillVersions(skillId) });
+      qc.invalidateQueries({ queryKey: queryKeys.skills() });
+      qc.invalidateQueries({ queryKey: queryKeys.skillStats(skillId) });
     },
   });
 }
