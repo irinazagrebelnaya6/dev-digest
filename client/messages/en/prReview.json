@@ -54,11 +54,19 @@
     "coreLabel": "Core",
     "wiringLabel": "Wiring",
     "boilerplateLabel": "Boilerplate",
+    "coreSubtitle": "The substance of the change — review closely",
+    "wiringSubtitle": "Hooks the core into the app",
+    "boilerplateSubtitle": "Generated / mechanical — skim",
     "largeTitle": "This PR is large ({lines} changed lines)",
     "largeBody": "Consider splitting it into smaller, focused PRs for easier review:",
     "filesCount": "{count} files",
     "findingLines": "{count} finding-lines",
-    "groupedByRole": "Smart Diff · grouped by role"
+    "groupedByRole": "Smart Diff · grouped by role",
+    "heading": "Reviewer-ordered diff",
+    "summary": "{files} files · +{additions} −{deletions}",
+    "smartOrder": "Smart order",
+    "originalOrder": "Original order",
+    "findingsBadge": "{count} findings"
   },
   "list": {
     "breadcrumb": "Pull Requests",
@@ -116,5 +124,16 @@
     "outOfScope": "Out of scope",
     "empty": "No intent computed yet — run a review or click Recompute.",
     "modelBadge": "via {model}"
+  },
+  "riskAreas": {
+    "title": "Risk Areas",
+    "recompute": "Recompute",
+    "recomputing": "Recomputing…",
+    "empty": "No risk analysis computed yet — run a review or click Recompute.",
+    "noRisks": "No notable risks found in this PR.",
+    "modelBadge": "via {model}",
+    "severityHigh": "High",
+    "severityMedium": "Medium",
+    "severityLow": "Low"
   }
 }

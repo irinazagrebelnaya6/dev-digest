@@ -2,6 +2,10 @@
 
 ## What Works
 
+[2026-07-04] Proving "this route makes NO LLM call" in a test: build the app with `buildApp({ config, db })` and NO `overrides` at all (no llm/embedder/git mocks). `container.llm(id)` is a lazy async accessor, never eagerly constructed, so a route that never calls it works fully unmocked — and the test failing the moment someone adds a provider call is the guarantee. Used in `server/test/smart-diff.it.test.ts`.
+
+[2026-07-04] Lesson verify gates (`scripts/verify-l03.sh`): run `check-vendor-sync.sh` in TWO passes — a full report that is non-fatal (it trips on pre-existing drift in `adapters.ts`/`knowledge.ts`/`productionize.ts`/`trace.ts`), then a SCOPED, fatal `diff` on only the contracts the lesson touches (`brief.ts`, `review-api.ts`, `platform.ts`). Otherwise legacy drift makes every lesson's gate red. There is no root `package.json`; a minimal one (name/private/scripts only, NO `workspaces` field) was added so `pnpm verify:l03` works from the repo root without turning the repo into a pnpm workspace (which would break the tsconfig-alias no-monorepo design).
+
 [2026-07-04] Counterfactual "token savings" logging: diff `container.tokenizer.count` between two prompt variants (header-only file list vs the full `diff.raw`), add the delta to the real `tokensIn`, then run `container.priceBook.estimate(model, …)` on both figures. Emit one amber `tool` event showing cheap-vs-full cost. Reusable pattern for any token-savings instrumentation. See `reviews/intent-service.ts`.
 
 [2026-06-28] Adding a new `RunEventKind` requires 3 server-side steps: (1) add the value to `RunEventKind` z.enum in `vendor/shared/contracts/trace.ts`, (2) add a `LEVEL` entry in `run-logger.ts` (maps kind → pino log level), (3) add a convenience method on `RunLogger`. Miss step 2 and TypeScript will error at the exhaustiveness check in LEVEL.
@@ -17,6 +21,10 @@
 [2026-06-28] ZIP entries compressed with deflate (method ≠ 0) cannot be read without fflate/pako — the manual ArrayBuffer parser in the import flow only handles store-compressed entries (method 0). `.zip` files exported by macOS Finder use deflate by default. Document or swap to fflate if real-world `.zip` imports are needed.
 
 ## Codebase Patterns
+
+[2026-07-04] `ReviewService` is the ONE module that does NOT use the `container.<x>Repo` lazy-getter DI pattern — it constructs `new ReviewRepository(container.db)` directly in its constructor and exposes it as `this.repo`. New methods on `ReviewService` (e.g. `smartDiffForPull`) must follow the local `this.repo` pattern, NOT introduce a container getter, to stay consistent within the module. (Nuances the general DI insight above — that rule holds for new modules; reviews is the established exception.)
+
+[2026-07-04] The `SmartDiff` contract family (`SmartDiffRole`/`SmartDiffFile`/`SmartDiffGroup`/`SmartDiff` in `brief.ts:81-113`, aliased `SmartDiffResponse` in `review-api.ts`) was pre-scaffolded before any implementation — same as `Intent`. When a lesson names a contract "in vendor/shared", check it already exists before defining one. Smart Diff is a deterministic composer (`smart-diff.ts` `composeSmartDiff`) over `getPrFiles` + latest-review `findings` — zero LLM. `pseudocode_summary` on `SmartDiffFile` stays null in the no-LLM build (rendering it would require a model call).
 
 [2026-06-26] `RunSummary` is defined in `vendor/shared/contracts/trace.ts`, NOT in `review-api.ts`. When adding fields to run data, update `trace.ts`, not `review-api.ts`.
 
@@ -43,6 +51,8 @@
 [2026-06-26] Adding a required field to a shared Zod schema breaks existing test fixtures that don't include it. Fix: use `.nullish()` (not `.nullable()`) for fields that are computed externally and not stored in DB — the type becomes `T | null | undefined`, which is backwards-compatible with old fixtures.
 
 ## Session Notes
+
+[2026-07-04] Implemented Smart Diff — risk-ordered diff, token-free. New `smart-diff.constants.ts` (BOILERPLATE/WIRING patterns + `SMART_DIFF_SPLIT_THRESHOLD_LINES=400`, pure data, no imports) and pure `smart-diff.ts` (`classifyFile` — boilerplate patterns checked with highest precedence so lock-files never reclassify; `composeSmartDiff` — fixed core→wiring→boilerplate group order, sorted-unique `finding_lines`, threshold-driven `too_big`). `smartDiffForPull` on ReviewService + `GET /pulls/:id/smart-diff` route (mirrors `GET /pulls/:id/reviews`). Reads only `getPrFiles` + `reviewsForPull()[0]?.findings ?? []` — works before any review has run (all `finding_lines` empty). Added `scripts/verify-l03.sh` + minimal root `package.json`. 147/147 server tests green; `pnpm verify:l03` exit 0.
 
 [2026-07-04] Implemented Intent Layer (cheap PR-intent classifier + prompt injection). Most infrastructure PRE-EXISTED: the `pr_intent` table (migration 0000), `upsertIntent`/`getIntent` in `reviews/repository/pull.repo.ts`, the `Intent`/`PrIntentRecord` contracts, `'intent'` already in `cheapTasks` (`model-router.ts`), and `review_intent` already in `FEATURE_MODELS` + the `/settings/models` UI. The real work was wiring the compute call, not new infra. Flipped the `review_intent` default from openai/gpt-4.1 → openrouter/deepseek-v4-flash in BOTH vendor `platform.ts` copies. New `reviews/intent-service.ts` exports `computeIntent(container, workspaceId, pull, repoRow, diff, runLog?)` + `formatIntentForPrompt(intent)`.
 

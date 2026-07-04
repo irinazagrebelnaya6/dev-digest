@@ -59,8 +59,8 @@ export const FEATURE_MODELS: FeatureModelDef[] = [
     id: 'risk_brief',
     label: 'Risk Brief',
     description: 'Assesses merge risks for a pull request.',
-    defaultProvider: 'openai',
-    defaultModel: 'gpt-4.1',
+    defaultProvider: 'openrouter',
+    defaultModel: 'z-ai/glm-5.1',
   },
   {
     id: 'conformance',
