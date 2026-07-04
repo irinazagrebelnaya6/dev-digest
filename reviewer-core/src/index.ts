@@ -19,6 +19,16 @@ export {
   type AssembledPrompt,
 } from './prompt.js';
 
+// Intent Layer — classifier prompt (title + body + linked issue + header-only
+// file list → { intent, in_scope[], out_of_scope[] }). Pure; caller resolves
+// the model + persists the result.
+export {
+  buildIntentPrompt,
+  formatFileList,
+  type BuildIntentPromptInput,
+  type IntentDiffFile,
+} from './intent-prompt.js';
+
 // Citation grounding — the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
 

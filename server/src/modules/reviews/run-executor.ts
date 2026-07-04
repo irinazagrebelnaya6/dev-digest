@@ -8,6 +8,7 @@ import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './reposit
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import { computeIntent, formatIntentForPrompt } from './intent-service.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -104,6 +105,17 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // Intent Layer — one cheap classifier call per run (shared pre-work, before
+    // the per-agent loop), injected into every agent's review prompt. Never
+    // blocks the review: on failure we log and continue with no intent (R2).
+    let intent: string | undefined;
+    try {
+      const computed = await computeIntent(this.container, workspaceId, pull, repo, diff, runLog);
+      intent = formatIntentForPrompt(computed);
+    } catch (err) {
+      runLog.info(`Intent compute failed — continuing without intent: ${(err as Error).message}`);
+    }
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
@@ -111,7 +123,7 @@ export class ReviewRunExecutor {
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog, intent);
         logger?.info(
           {
             runId,
@@ -143,6 +155,7 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     runId: string,
     parentLog: RunLogger,
+    intent?: string,
   ): Promise<RunOutcome> {
     const start = Date.now();
     // Narrow the fanned-out pre-work logger to THIS run; the shared diff/intent
@@ -219,6 +232,9 @@ export class ReviewRunExecutor {
         // Linked + enabled skills (ordered). assemblePrompt renders them as the
         // "## Skills / rules" section below the system prompt.
         ...(skillBodies.length > 0 ? { skills: skillBodies } : {}),
+        // Intent Layer — PR intent & scope, computed once per run (see above).
+        // Omitted when the compute failed; assemblePrompt omits the section.
+        ...(intent ? { intent } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),

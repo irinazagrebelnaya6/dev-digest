@@ -2,6 +2,8 @@
 
 ## What Works
 
+[2026-07-04] `IntentCard` (PR Overview tab) reuses existing primitives with zero new components: `Card` + `Markdown` from `@devdigest/ui`, the Overview tab's `SectionLabel icon="Target"` pattern for the header, `Icon.CheckCircle` with the `--ok` green token for IN SCOPE, muted `Icon.X` for OUT OF SCOPE. It fetches its own data via `useIntent(prId)` so `OverviewTab` only passes `prId` — keeps prop-drilling shallow.
+
 [2026-06-28] Deriving `selectedSkill` from TanStack Query cache by id (`skills.find(s => s.id === selected.id) ?? selected`) keeps the drawer in sync after mutations without an extra fetch. Never store a full entity snapshot in local state when the query cache already owns that data.
 
 [2026-06-28] Inline confirmation state (`confirmDelete` boolean) replaces `window.confirm()` for delete flows in card components. Pattern: show Delete/Cancel buttons inline on first click, call `mutate` on second. Avoids blocking the main thread and fits the design system.
@@ -27,6 +29,8 @@
 [2026-06-28] Do NOT use `queryKeys.providerModels(undefined)` for prefix invalidation — it produces `["provider-models", undefined]` which only matches queries where provider IS undefined, not all provider-model queries. For prefix invalidation keep the raw array: `qc.invalidateQueries({ queryKey: ["provider-models"] })`. Add a comment so the next reader doesn't "fix" it with the factory.
 
 ## Codebase Patterns
+
+[2026-07-04] The `FEATURE_MODELS` registry lives in THREE places that must stay aligned: `server/src/vendor/shared/contracts/platform.ts`, its byte-identical client mirror `client/src/vendor/shared/contracts/platform.ts`, AND a client-local runtime copy `client/src/lib/feature-models.ts`. Changing a feature's default model (e.g. `review_intent` → openrouter/deepseek-v4-flash) requires editing all three. The client-local copy is the one that had stale drift (`conventions` default) as of this session.
 
 [2026-06-28] `Tabs` from `vendor/ui/kit` defaults to `pad="0 28px"` (matches the app shell). Inside a `Modal` pass `pad="0"` to flush-align tabs with the modal edge — otherwise tabs appear indented inside the dialog frame.
 
@@ -71,6 +75,8 @@
 [2026-06-26] Adding a non-optional field to a shared Zod schema used in test fixtures causes TS error: `Type 'undefined' is not assignable to type 'number | null'`. Fix: use `.nullish()` instead of `.nullable()` for fields computed server-side that old fixtures won't have.
 
 ## Session Notes
+
+[2026-07-04] Implemented Intent Layer UI. New `_components/IntentCard/` on the PR Overview tab (with the mandatory `index.ts` re-export), `useIntent`/`useComputeIntent` in `lib/hooks/intent.ts` (re-exported from the hooks barrel), and a `prIntent(prId)` query key. `PrIntentRecord`/`Intent` already existed in the client vendor copy — no contract sync needed. Model selection in Settings → Models already supported `review_intent`; only the default model changed. Card matches the design: `◎ INTENT` header, italic summary, IN SCOPE / OUT OF SCOPE columns, model badge, Recompute button, empty/loading states. Did NOT build the mockup's RISK AREAS chips (separate feature).
 
 [2026-06-30] Lesson 3 reviewer fixes — client side. Created `/skills/[id]/page.tsx` (Skill Editor) with left sidebar + 4 tabs: Config, Preview, Stats, Versions. Modelled on `/agents/[id]/page.tsx`. Config tab uses local draft state synced via `useEffect` on `skillId` change — required because Next.js reuses the page component across skill navigations without unmounting. Restore button in Versions tab calls `useRestoreSkillVersion` which creates a new body version (not history mutation).
 

@@ -64,3 +64,34 @@ describe('assemblePrompt — ## PR description', () => {
     expect((assembly.pr_description as string).length).toBe(4000);
   });
 });
+
+describe('assemblePrompt — ## PR intent & scope (Intent Layer)', () => {
+  it('renders the section, untrusted-wrapped, after ## PR description and before ## Skills / rules', () => {
+    const user = userOf({
+      system: 'sys',
+      diff: 'DIFF',
+      prDescription: 'Adds rate limiting to the public /api endpoints.',
+      intent: 'Adds rate limiting; in scope: api/*; out of scope: auth/*.',
+      skills: ['skill body'],
+    });
+    expect(user).toContain('## PR intent & scope');
+    expect(user).toContain('<untrusted source="intent">');
+    expect(user).toContain('Adds rate limiting; in scope: api/*; out of scope: auth/*.');
+    expect(user.indexOf('## PR description')).toBeLessThan(user.indexOf('## PR intent & scope'));
+    expect(user.indexOf('## PR intent & scope')).toBeLessThan(user.indexOf('## Skills / rules'));
+  });
+
+  it('omits the section when intent is undefined or blank', () => {
+    expect(userOf({ system: 'sys', diff: 'DIFF' })).not.toContain('## PR intent & scope');
+    expect(userOf({ system: 'sys', diff: 'DIFF', intent: '   ' })).not.toContain(
+      '## PR intent & scope',
+    );
+  });
+
+  it('includes the out-of-scope scope rule in the system prompt (reaches the model unconditionally)', () => {
+    const sys = systemOf({ system: 'sys', diff: 'DIFF' });
+    expect(sys).toMatch(/in_scope areas/i);
+    expect(sys).toMatch(/\[out-of-scope\]/);
+    expect(sys).toMatch(/AT MOST ONE/);
+  });
+});

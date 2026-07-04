@@ -2,6 +2,8 @@
 
 ## What Works
 
+[2026-07-04] Counterfactual "token savings" logging: diff `container.tokenizer.count` between two prompt variants (header-only file list vs the full `diff.raw`), add the delta to the real `tokensIn`, then run `container.priceBook.estimate(model, …)` on both figures. Emit one amber `tool` event showing cheap-vs-full cost. Reusable pattern for any token-savings instrumentation. See `reviews/intent-service.ts`.
+
 [2026-06-28] Adding a new `RunEventKind` requires 3 server-side steps: (1) add the value to `RunEventKind` z.enum in `vendor/shared/contracts/trace.ts`, (2) add a `LEVEL` entry in `run-logger.ts` (maps kind → pino log level), (3) add a convenience method on `RunLogger`. Miss step 2 and TypeScript will error at the exhaustiveness check in LEVEL.
 
 [2026-06-28] DI pattern for new module repos: add a private `_fooRepo?: FooRepository` field and a lazy `get fooRepo()` getter to `platform/container.ts` (mirror `agentsRepo`). Services receive it via `container.fooRepo` — never `new FooRepository(container.db)` inside a service, or ContainerOverrides in tests won't be able to replace it.
@@ -34,11 +36,17 @@
 
 ## Recurring Errors & Fixes
 
+[2026-07-04] `MockLLMProvider` (`adapters/mocks.ts`) had its `id`/constructor param narrowed to `'openai' | 'anthropic'` even though `LLMProvider.id` allows `'openrouter'`. Any feature whose `FEATURE_MODELS` default resolves to an openrouter model (e.g. `review_intent` now defaults to `deepseek/deepseek-v4-flash`) cannot be integration-tested until you widen `MockLLMProvider`'s `id` to include `'openrouter'`.
+
 [2026-06-28] Drizzle `db.update().set(obj)` rejects a plain `{ status?: string }` when the column is typed as a text enum — TypeScript sees the types as incompatible. Fix: use conditional spreads the way `skills/repository.ts:90-96` does: `{ ...(fields.status !== undefined ? { status: fields.status } : {}) }`. The spread produces a type that satisfies the enum column type.
 
 [2026-06-26] Adding a required field to a shared Zod schema breaks existing test fixtures that don't include it. Fix: use `.nullish()` (not `.nullable()`) for fields that are computed externally and not stored in DB — the type becomes `T | null | undefined`, which is backwards-compatible with old fixtures.
 
 ## Session Notes
+
+[2026-07-04] Implemented Intent Layer (cheap PR-intent classifier + prompt injection). Most infrastructure PRE-EXISTED: the `pr_intent` table (migration 0000), `upsertIntent`/`getIntent` in `reviews/repository/pull.repo.ts`, the `Intent`/`PrIntentRecord` contracts, `'intent'` already in `cheapTasks` (`model-router.ts`), and `review_intent` already in `FEATURE_MODELS` + the `/settings/models` UI. The real work was wiring the compute call, not new infra. Flipped the `review_intent` default from openai/gpt-4.1 → openrouter/deepseek-v4-flash in BOTH vendor `platform.ts` copies. New `reviews/intent-service.ts` exports `computeIntent(container, workspaceId, pull, repoRow, diff, runLog?)` + `formatIntentForPrompt(intent)`.
+
+[2026-07-04] `computeIntent` runs as a run-executor pre-step: once per run, AFTER `loadDiff`, BEFORE the per-agent loop, wrapped in try/catch so an intent failure NEVER blocks the review (degrades to no-intent-injected). The same service backs the synchronous `POST /pulls/:id/intent` endpoint — one implementation, two callers (cascade + manual recompute). Linked-issue fetch (`container.github().getIssue` from `#NNN` in the body) is best-effort and swallowed on failure.
 
 [2026-06-30] Lesson 3 reviewer fixes — server side. Added `stats` + `restore` endpoints to skills module. `GET /skills/:id/stats` returns `agents_count` (COUNT from `agent_skills`), `version_count` (COUNT from `skill_versions`), `created_at`. `POST /skills/:id/versions/:version/restore` reuses `service.update()` with the snapshot body — this correctly bumps the version and creates a new snapshot rather than mutating history. Added `countAgentsUsingSkill()` and `countVersions()` to `SkillsRepository` using Drizzle `count()` helper (requires explicit import from `drizzle-orm`).
 
@@ -61,5 +69,7 @@
 [2026-06-26] Implemented findings_breakdown for PR list FINDINGS column. Pattern: extend `latestReviewByPr` Map to also store `id`, then one additional `SELECT` from `t.findings` with `inArray(reviewId, latestReviewIds)` + JS grouping. `findings.reviewId` is nullable in the schema — always null-guard (`if (!f.reviewId) continue`). Added `findings_breakdown` to `PrMeta` schema as `.nullish()` nested object `{critical, warning, suggestion}`.
 
 ## Open Questions
+
+[2026-07-04] `scripts/check-vendor-sync.sh` fails on PRE-EXISTING drift unrelated to the Intent Layer: `adapters.ts` (`LLMProvider.id` missing `'openrouter'` on the client copy), `knowledge.ts` (`AgentVersion` schema), `productionize.ts` (provider enum missing `'openrouter'`), `trace.ts` (comment/field wording). `platform.ts` (the only vendor file this feature touched) IS in sync. Needs a dedicated vendor-sync cleanup pass.
 
 [2026-06-26] `agentRuns.prId` is nullable in schema but shouldn't be logically — was this intentional or an oversight in migration 0000?

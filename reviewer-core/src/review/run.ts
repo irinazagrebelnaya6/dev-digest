@@ -71,6 +71,13 @@ export interface ReviewInput {
   /** PR author's description/body (untrusted; truncated + delimiter-wrapped in
       the prompt). Empty/undefined → section omitted. */
   prDescription?: string;
+  /**
+   * PR intent & scope, formatted as text by the caller from the Intent Layer's
+   * classifier output (one-sentence summary + in-scope/out-of-scope areas).
+   * Untrusted; delimiter-wrapped downstream. Forwarded to every chunk's prompt
+   * in map-reduce mode. Empty/undefined → section omitted.
+   */
+  intent?: string;
   /** Task framing line, e.g. "Review PR #482 …". */
   task?: string;
   /** Override the structured-output retry budget. */
@@ -135,6 +142,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     callers: input.callers,
     repoMap: input.repoMap,
     prDescription: input.prDescription,
+    intent: input.intent,
     task: input.task,
   };
 
