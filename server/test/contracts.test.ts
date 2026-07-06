@@ -80,7 +80,9 @@ describe('AI contracts parse fixtures', () => {
             crons_affected: ['c'],
           },
         ],
+        reachable_endpoints: ['GET /x'],
         summary: 's',
+        degraded: false,
       }),
     ).not.toThrow();
     expect(() =>

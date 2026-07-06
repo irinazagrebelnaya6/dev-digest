@@ -700,6 +700,52 @@ export class RepoIntelService implements RepoIntel {
     }
     return paths;
   }
+
+  /**
+   * Endpoints reachable from the changed files by walking the import graph in
+   * reverse (dependents) up to `depth` hops, unioning `file_facts.endpoints` of
+   * every visited file. Answers "which HTTP routes can these changes affect?"
+   * beyond the direct callers. Pure read over `file_edges` + `file_facts`.
+   */
+  async getReachableEndpoints(
+    repoId: string,
+    changedFiles: string[],
+    depth: number = BFS_DEPTH,
+  ): Promise<string[]> {
+    if (!this.container.config.repoIntelEnabled || changedFiles.length === 0) return [];
+    const edges = await this.repo.getEdges(repoId);
+    if (edges.length === 0) return [];
+
+    // Reverse adjacency: imported file → files that import it (dependents).
+    const dependents = new Map<string, string[]>();
+    for (const e of edges) {
+      const arr = dependents.get(e.toFile);
+      if (arr) arr.push(e.fromFile);
+      else dependents.set(e.toFile, [e.fromFile]);
+    }
+
+    // BFS outward from the changed files, bounded to `depth` levels.
+    const visited = new Set<string>(changedFiles);
+    let frontier = [...changedFiles];
+    for (let level = 0; level < depth && frontier.length > 0; level += 1) {
+      const next: string[] = [];
+      for (const file of frontier) {
+        for (const dep of dependents.get(file) ?? []) {
+          if (visited.has(dep)) continue;
+          visited.add(dep);
+          next.push(dep);
+        }
+      }
+      frontier = next;
+    }
+
+    // Union endpoints across every reachable file (changed files included, so a
+    // route declared in a changed file itself is surfaced too).
+    const facts = await this.repo.getFileFacts(repoId, [...visited]);
+    const endpoints = new Set<string>();
+    for (const f of facts) for (const e of f.endpoints) endpoints.add(e);
+    return [...endpoints].sort();
+  }
 }
 
 /** How many top-ranked files seed `getCriticalPaths` dependency chains. */

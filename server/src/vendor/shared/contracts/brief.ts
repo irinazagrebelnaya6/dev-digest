@@ -39,7 +39,16 @@ export type DownstreamImpact = z.infer<typeof DownstreamImpact>;
 export const BlastRadius = z.object({
   changed_symbols: z.array(ChangedSymbol),
   downstream: z.array(DownstreamImpact),
+  // HTTP routes reachable from the changed files by walking the import graph up
+  // to 2 levels deep (dependents-of-dependents). PR-level union; distinct from
+  // each downstream symbol's direct `endpoints_affected`.
+  reachable_endpoints: z.array(z.string()),
   summary: z.string(),
+  // Index health for the view: true when the repo-intel index is missing /
+  // unusable (degraded/ripgrep fallback), so the tab can show a badge instead
+  // of an empty screen. `reason` mirrors repo-intel's DegradedReason.
+  degraded: z.boolean(),
+  reason: z.string().nullish(),
 });
 export type BlastRadius = z.infer<typeof BlastRadius>;
 

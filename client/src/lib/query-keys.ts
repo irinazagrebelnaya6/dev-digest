@@ -40,4 +40,5 @@ export const queryKeys = {
   prIntent: (prId: string | null | undefined) => ["pr-intent", prId] as const,
   prRisks: (prId: string | null | undefined) => ["pr-risks", prId] as const,
   prSmartDiff: (prId: string | null | undefined) => ["pr-smart-diff", prId] as const,
+  prBlast: (prId: string | null | undefined) => ["pr-blast", prId] as const,
 } as const;
