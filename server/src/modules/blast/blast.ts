@@ -1,4 +1,4 @@
-import type { BlastRadius, DownstreamImpact } from '@devdigest/shared';
+import type { BlastRadius, DownstreamImpact, PriorPr } from '@devdigest/shared';
 import type { BlastResult } from '../repo-intel/types.js';
 
 /**
@@ -17,6 +17,7 @@ export const MAX_CALLERS_PER_SYMBOL = 20;
 export function composeBlastRadius(
   result: BlastResult,
   reachableEndpoints: string[],
+  priorPrs: PriorPr[] = [],
   summary = '',
 ): BlastRadius {
   const changed_symbols = result.changedSymbols.map((s) => ({
@@ -55,6 +56,7 @@ export function composeBlastRadius(
   return {
     changed_symbols,
     downstream,
+    prior_prs: priorPrs,
     reachable_endpoints: [...new Set(reachableEndpoints)].sort(),
     summary,
     degraded: result.degraded ?? false,

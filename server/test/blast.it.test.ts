@@ -48,7 +48,25 @@ async function setupRepoAndPr(db: PgFixture['handle']['db'], workspaceId: string
   // The PR changes the shared helper file.
   await db.insert(t.prFiles).values([{ prId: pr!.id, path: HELPER, additions: 12, deletions: 4 }]);
 
-  if (withIndex) await seedIndex(db, repoId);
+  if (withIndex) {
+    await seedIndex(db, repoId);
+    // A prior PR in the same repo that also touched the helper → history.
+    const [prior] = await db
+      .insert(t.pullRequests)
+      .values({
+        workspaceId,
+        repoId,
+        number: 499,
+        title: 'Earlier tweak to money helper',
+        author: 'someone',
+        branch: 'chore/money',
+        base: 'main',
+        headSha: 'sha499',
+        status: 'merged',
+      })
+      .returning();
+    await db.insert(t.prFiles).values([{ prId: prior!.id, path: HELPER, additions: 3, deletions: 1 }]);
+  }
   return { repo: repo!, pr: pr! };
 }
 
@@ -129,6 +147,11 @@ d('Blast Radius /pulls/:id/blast (Testcontainers pg, no LLM)', () => {
     // 2-level reachable endpoints include the depth-2 dependent's route.
     expect(body.reachable_endpoints).toContain('POST /gateway');
     expect(body.reachable_endpoints).toContain('GET /invoices');
+
+    // Prior PRs touching the same file surface with the overlap.
+    const prior = body.prior_prs.find((p) => p.number === 499);
+    expect(prior).toBeDefined();
+    expect(prior!.overlap).toContain(HELPER);
 
     await a.close();
   });

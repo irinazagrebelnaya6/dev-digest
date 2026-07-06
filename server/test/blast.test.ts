@@ -27,7 +27,7 @@ describe('composeBlastRadius', () => {
   };
 
   it('maps changed symbols 1:1', () => {
-    const b = composeBlastRadius(result, [], '');
+    const b = composeBlastRadius(result, [], []);
     expect(b.changed_symbols).toEqual([
       { name: 'formatCents', file: 'src/lib/money.ts', kind: 'function' },
       { name: 'parseCents', file: 'src/lib/money.ts', kind: 'function' },
@@ -35,7 +35,7 @@ describe('composeBlastRadius', () => {
   });
 
   it('groups callers under the changed symbol they reach, with per-symbol endpoints', () => {
-    const b = composeBlastRadius(result, [], '');
+    const b = composeBlastRadius(result, [], []);
     const fmt = b.downstream.find((d) => d.symbol === 'formatCents');
     expect(fmt?.callers).toEqual([
       { name: 'listInvoices', file: 'src/api/invoices.ts', line: 42 },
@@ -62,18 +62,21 @@ describe('composeBlastRadius', () => {
       impactedEndpoints: [],
       degraded: false,
     };
-    const b = composeBlastRadius(many, [], '');
+    const b = composeBlastRadius(many, [], []);
     expect(b.downstream[0]?.callers).toHaveLength(MAX_CALLERS_PER_SYMBOL);
   });
 
-  it('dedupes + sorts reachable_endpoints and carries degraded/reason/summary', () => {
+  it('dedupes + sorts reachable_endpoints, passes prior_prs, carries degraded/reason/summary', () => {
+    const priors = [{ number: 480, title: 'earlier', author: 'dev', overlap: ['a.ts'] }];
     const b = composeBlastRadius(
       { changedSymbols: [], callers: [], impactedEndpoints: [], degraded: true, reason: 'no_data' },
       ['POST /x', 'GET /a', 'POST /x'],
+      priors,
       'a one-line summary',
     );
     expect(b.reachable_endpoints).toEqual(['GET /a', 'POST /x']);
     expect(b.downstream).toEqual([]);
+    expect(b.prior_prs).toEqual(priors);
     expect(b.degraded).toBe(true);
     expect(b.reason).toBe('no_data');
     expect(b.summary).toBe('a one-line summary');

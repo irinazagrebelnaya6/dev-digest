@@ -138,14 +138,18 @@
   },
   "blast": {
     "title": "Blast Radius",
-    "explain": "Explain this map",
+    "explain": "Explain",
     "summarizing": "Summarizing…",
-    "degraded": "This repo isn't fully indexed yet — the impact map may be incomplete. Re-index the repo for full results.",
+    "degraded": "This repo isn't fully indexed yet — the impact map may be incomplete.",
     "emptyTitle": "No impact detected",
     "emptyBody": "No indexed callers or endpoints reach the changed files. If the repo was just imported, indexing may still be running.",
-    "callers": "Callers ({count})",
-    "noCallers": "No known callers in the index.",
-    "endpoints": "Endpoints affected",
-    "reachable": "Reachable endpoints (≤2 import hops)"
+    "symbols": "{count, plural, one {# symbol} other {# symbols}}",
+    "callers": "{count, plural, one {# caller} other {# callers}}",
+    "endpoints": "{count, plural, one {# endpoint} other {# endpoints}}",
+    "crons": "{count, plural, one {# cron} other {# crons}}",
+    "tree": "Tree",
+    "graph": "Graph",
+    "priorPrs": "Prior PRs touching these files",
+    "graphEmpty": "No caller relationships to graph."
   }
 }

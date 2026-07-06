@@ -40,13 +40,14 @@ export class BlastService {
 
     const paths = (await this.repo.getPrFiles(pull.id)).map((f) => f.path);
 
-    // Two independent index reads — run them together.
-    const [result, reachableEndpoints] = await Promise.all([
+    // Two index reads + the prior-PR history query — run them together.
+    const [result, reachableEndpoints, priorPrs] = await Promise.all([
       this.container.repoIntel.getBlastRadius(pull.repoId, paths),
       this.container.repoIntel.getReachableEndpoints(pull.repoId, paths),
+      this.repo.priorPullsTouchingPaths(workspaceId, pull.repoId, pull.id, paths),
     ]);
 
-    const blast = composeBlastRadius(result, reachableEndpoints);
+    const blast = composeBlastRadius(result, reachableEndpoints, priorPrs);
 
     // Optional, opt-in: one cheap-model paragraph. Never blocks the map — a
     // failed/absent LLM leaves `summary` empty.

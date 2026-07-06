@@ -11,7 +11,7 @@ vi.mock("@/lib/hooks/blast", () => ({
   useBlast: () => ({ data: mockData, isLoading: mockIsLoading, isFetching: false }),
 }));
 
-import { BlastTab } from "./BlastTab";
+import { BlastRadiusCard } from "./BlastRadiusCard";
 
 afterEach(() => {
   cleanup();
@@ -19,16 +19,16 @@ afterEach(() => {
   mockIsLoading = false;
 });
 
-function renderTab() {
+function renderCard() {
   return render(
     <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-      <BlastTab prId="pr1" repoFullName="acme/payments-api" headSha="sha1" />
+      <BlastRadiusCard prId="pr1" repoFullName="acme/payments-api" headSha="sha1" />
     </NextIntlClientProvider>,
   );
 }
 
-describe("BlastTab", () => {
-  it("renders callers as file:line links that open the code at that line", () => {
+describe("BlastRadiusCard", () => {
+  it("auto-expands the first symbol with callers and links each file:line to the code", () => {
     mockData = {
       changed_symbols: [{ name: "formatCents", file: "src/lib/money.ts", kind: "function" }],
       downstream: [
@@ -42,39 +42,42 @@ describe("BlastTab", () => {
           crons_affected: [],
         },
       ],
+      prior_prs: [{ number: 480, title: "Earlier tweak", author: "dev", overlap: ["src/lib/money.ts"] }],
       reachable_endpoints: ["GET /invoices", "POST /gateway"],
       summary: "",
       degraded: false,
     };
 
-    renderTab();
+    renderCard();
 
-    // ≥2 callers rendered.
-    expect(screen.getByText("listInvoices")).toBeInTheDocument();
-    expect(screen.getByText("getOrder")).toBeInTheDocument();
+    // Counts row: 1 symbol, 2 endpoints (union incl. reachable).
+    expect(screen.getByText("1 symbol")).toBeInTheDocument();
+    expect(screen.getByText("2 endpoints")).toBeInTheDocument();
+    // Prior PRs section header present (collapsed).
+    expect(screen.getByText("Prior PRs touching these files")).toBeInTheDocument();
 
-    // The caller link opens the exact file:line on GitHub (click-to-code).
+    // First symbol auto-expanded → caller file:line link opens the exact line.
     const link = screen.getByText("src/api/invoices.ts:42").closest("a");
     expect(link).toHaveAttribute(
       "href",
       "https://github.com/acme/payments-api/blob/sha1/src/api/invoices.ts#L42",
     );
-
-    // Endpoint + reachable endpoint surfaced.
+    expect(screen.getByText("src/api/orders.ts:17")).toBeInTheDocument();
+    // Endpoint badge under the expanded symbol.
     expect(screen.getAllByText("GET /invoices").length).toBeGreaterThan(0);
-    expect(screen.getByText("POST /gateway")).toBeInTheDocument();
   });
 
   it("shows a degraded banner when the index is incomplete", () => {
     mockData = {
       changed_symbols: [],
       downstream: [],
+      prior_prs: [],
       reachable_endpoints: [],
       summary: "",
       degraded: true,
       reason: "no_data",
     };
-    renderTab();
+    renderCard();
     expect(screen.getByText(/isn't fully indexed/i)).toBeInTheDocument();
   });
 
@@ -82,11 +85,12 @@ describe("BlastTab", () => {
     mockData = {
       changed_symbols: [],
       downstream: [],
+      prior_prs: [],
       reachable_endpoints: [],
       summary: "",
       degraded: false,
     };
-    renderTab();
+    renderCard();
     expect(screen.getByText("No impact detected")).toBeInTheDocument();
   });
 });

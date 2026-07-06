@@ -36,9 +36,20 @@ export const DownstreamImpact = z.object({
 });
 export type DownstreamImpact = z.infer<typeof DownstreamImpact>;
 
+/** A prior PR that touched one or more of the same files as this PR. */
+export const PriorPr = z.object({
+  number: z.number().int(),
+  title: z.string(),
+  author: z.string(),
+  overlap: z.array(z.string()),
+});
+export type PriorPr = z.infer<typeof PriorPr>;
+
 export const BlastRadius = z.object({
   changed_symbols: z.array(ChangedSymbol),
   downstream: z.array(DownstreamImpact),
+  // Prior PRs in this repo that touched any of the changed files (history).
+  prior_prs: z.array(PriorPr),
   // HTTP routes reachable from the changed files by walking the import graph up
   // to 2 levels deep (dependents-of-dependents). PR-level union; distinct from
   // each downstream symbol's direct `endpoints_affected`.

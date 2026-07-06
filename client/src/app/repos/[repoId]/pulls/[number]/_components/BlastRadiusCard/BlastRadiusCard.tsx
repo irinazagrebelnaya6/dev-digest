@@ -10,7 +10,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Card, SectionLabel, Markdown, MonoLink, Badge, Button, Skeleton, EmptyState, Icon } from "@devdigest/ui";
 import { useBlast } from "@/lib/hooks/blast";
-import { githubBlobUrl } from "@/lib/github-urls";
+import { githubBlobUrl, githubPrUrl } from "@/lib/github-urls";
+import { BlastGraph } from "./BlastGraph";
 import { s } from "./styles";
 
 const EP = { color: "#5b9bd5", bg: "rgba(91,155,213,0.14)" };
@@ -27,6 +28,8 @@ export function BlastRadiusCard({
 }) {
   const t = useTranslations("prReview");
   const [wantSummary, setWantSummary] = React.useState(false);
+  const [view, setView] = React.useState<"tree" | "graph">("tree");
+  const [priorOpen, setPriorOpen] = React.useState(false);
   const { data, isLoading, isFetching } = useBlast(prId, wantSummary);
 
   const downstreamBySymbol = new Map((data?.downstream ?? []).map((d) => [d.symbol, d]));
@@ -99,6 +102,21 @@ export function BlastRadiusCard({
                 <Icon.Clock size={14} />
                 {t("blast.crons", { count: cronSet.size })}
               </span>
+
+              <div style={s.toggle} role="tablist">
+                {(["tree", "graph"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    role="tab"
+                    aria-selected={view === v}
+                    onClick={() => setView(v)}
+                    style={{ ...s.toggleBtn, ...(view === v ? s.toggleBtnActive : {}) }}
+                  >
+                    {t(`blast.${v}`)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {wantSummary && isFetching && <p style={s.emptyBody}>{t("blast.summarizing")}</p>}
@@ -108,6 +126,7 @@ export function BlastRadiusCard({
               </div>
             ) : null}
 
+            {view === "tree" ? (
             <div style={s.tree}>
               {symbols.map((sym) => {
                 const down = downstreamBySymbol.get(sym.name);
@@ -167,6 +186,49 @@ export function BlastRadiusCard({
                 );
               })}
             </div>
+            ) : (
+              <BlastGraph
+                downstream={data!.downstream}
+                repoFullName={repoFullName}
+                headSha={headSha}
+                emptyLabel={t("blast.graphEmpty")}
+              />
+            )}
+
+            {data!.prior_prs.length > 0 && (
+              <div style={s.prior}>
+                <button
+                  type="button"
+                  style={s.priorHead}
+                  onClick={() => setPriorOpen((o) => !o)}
+                  aria-expanded={priorOpen}
+                >
+                  <Icon.History size={14} />
+                  <span>{t("blast.priorPrs")}</span>
+                  <span style={s.priorCount}>
+                    {data!.prior_prs.length}
+                    <Icon.ChevronRight
+                      size={14}
+                      style={{ transform: priorOpen ? "rotate(90deg)" : "none", transition: "transform .12s" }}
+                    />
+                  </span>
+                </button>
+                {priorOpen &&
+                  data!.prior_prs.map((p) => (
+                    <div key={p.number} style={s.priorItem}>
+                      <div style={s.priorTitle}>
+                        <MonoLink href={repoFullName ? githubPrUrl(repoFullName, p.number) : undefined}>
+                          #{p.number}
+                        </MonoLink>
+                        <span>{p.title}</span>
+                      </div>
+                      <span style={s.priorMeta}>
+                        {p.author} · {p.overlap.join(", ")}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
           </>
         )}
 
