@@ -42,6 +42,9 @@ export {
 // Citation grounding — the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
 
+// Project Context Folder — pure order/dedup helper for attached spec docs.
+export { orderContextSpecs } from './project-context.js';
+
 // Structured-output helpers (Zod → JSON Schema + parse-with-repair).
 export {
   toJsonSchema,
