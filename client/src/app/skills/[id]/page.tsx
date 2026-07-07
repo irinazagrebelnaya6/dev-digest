@@ -17,10 +17,12 @@ import {
 import { ApiError } from "../../../lib/api";
 import { useToast } from "../../../lib/toast";
 import type { SkillType } from "@devdigest/shared";
+import { ContextSection } from "./_components/ContextSection";
 
 const TABS = [
   { key: "config", label: "Config", icon: "Settings" as const },
   { key: "preview", label: "Preview", icon: "Eye" as const },
+  { key: "context", label: "Context", icon: "FileText" as const },
   { key: "stats", label: "Stats", icon: "BarChart" as const },
   { key: "versions", label: "Versions", icon: "History" as const },
 ];
@@ -146,6 +148,7 @@ export default function SkillEditorPage() {
                 />
               )}
               {tab === "preview" && <Markdown>{skill.body}</Markdown>}
+              {tab === "context" && <ContextSection skill={skill} />}
               {tab === "stats" && <StatsTab skillId={id} />}
               {tab === "versions" && <VersionsTab skillId={id} currentVersion={skill.version} />}
             </div>

@@ -1,0 +1,13 @@
+{
+  "title": "Project Context",
+  "subtitle": "Markdown docs discoverable under specs/docs/insights in this repo — read/preview only. Attach them to an agent or skill to inject their contents into review prompts.",
+  "listLabel": "Discoverable project context docs",
+  "usedBy": "Used by {count, plural, one {# agent} other {# agents}}",
+  "selectPrompt": "Select a doc to preview its contents.",
+  "noPreview": "Preview not available for this doc.",
+  "loadError": "Could not load project context for this repo.",
+  "emptyTitle": "No project context docs found",
+  "emptyBody": "Add .md files under specs/, docs/, or insights/ in this repository so agents and skills can reference them.",
+  "degraded": "This repo isn't fully cloned yet — project context may be incomplete.",
+  "degradedWithReason": "Project context is degraded ({reason}) — the list below may be incomplete."
+}
