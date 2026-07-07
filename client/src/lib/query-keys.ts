@@ -16,6 +16,9 @@ export const queryKeys = {
   // Context / repo-intel
   context: (repoId: string | null | undefined) => ["context", repoId] as const,
 
+  // Project Context Folder (attached repo docs — specs/docs/insights .md)
+  projectContext: (repoId: string | null | undefined) => ["project-context", repoId] as const,
+
   // Agents
   agents: () => ["agents"] as const,
   agent: (id: string | null | undefined) => ["agent", id] as const,

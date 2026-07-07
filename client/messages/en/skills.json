@@ -97,5 +97,21 @@
     "bodyLabel": "Skill body (Markdown)",
     "bodyHint": "Saving a changed body creates a new immutable version.",
     "version": "v{version}"
+  },
+  "context": {
+    "title": "Project context to use",
+    "hint": "Attach repo markdown (specs/docs/insights) — every agent that links this skill inherits these docs into its review prompt as untrusted data. Only paths are stored here.",
+    "emptyTitle": "No project context attached",
+    "emptyBody": "Attach a spec, doc, or insight file for agents linking this skill to inherit.",
+    "attachedListLabel": "Attached project context paths",
+    "removeAria": "Remove {path} from attached context",
+    "pickerTitle": "Attach from repo",
+    "repoSelectAria": "Repo to browse for project context docs",
+    "pickerListLabel": "Discoverable project context docs",
+    "pickerLoadError": "Could not load project context docs for this repo.",
+    "noDocs": "No more specs/docs/insights .md files discovered in this repo.",
+    "addAria": "Attach {path}",
+    "added": "Context path attached",
+    "removed": "Context path removed"
   }
 }
