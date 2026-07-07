@@ -42,6 +42,10 @@ export const PriorPr = z.object({
   title: z.string(),
   author: z.string(),
   overlap: z.array(z.string()),
+  // PR open date (YYYY-MM-DD) and description body — power the history timeline
+  // UI (avatar · date, then a note line). Nullish: older rows/fixtures omit them.
+  date: z.string().nullish(),
+  note: z.string().nullish(),
 });
 export type PriorPr = z.infer<typeof PriorPr>;
 

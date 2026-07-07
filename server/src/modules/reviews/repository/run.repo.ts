@@ -68,6 +68,44 @@ export async function listRunsForPull(
 }
 
 /**
+ * A single run by its id, workspace-scoped — same `RunSummary` shape as
+ * `listRunsForPull`. Backs the MCP `get_findings` tool's `run_id` status
+ * derivation (the run's `run_id` arrives directly from an untrusted caller
+ * with no prior PR lookup, so the tenancy guard is applied here). Returns
+ * `undefined` for an unknown/foreign run so callers can map `RUN_NOT_FOUND`.
+ */
+export async function getRunById(
+  db: Db,
+  workspaceId: string,
+  runId: string,
+): Promise<RunSummary | undefined> {
+  const [row] = await db
+    .select({ run: t.agentRuns, agentName: t.agents.name })
+    .from(t.agentRuns)
+    .leftJoin(t.agents, eq(t.agents.id, t.agentRuns.agentId))
+    .where(and(eq(t.agentRuns.workspaceId, workspaceId), eq(t.agentRuns.id, runId)));
+  if (!row) return undefined;
+  const { run, agentName } = row;
+  return {
+    run_id: run.id,
+    agent_id: run.agentId,
+    agent_name: agentName ?? null,
+    provider: run.provider,
+    model: run.model,
+    status: run.status,
+    error: run.error,
+    duration_ms: run.durationMs,
+    tokens_in: run.tokensIn,
+    tokens_out: run.tokensOut,
+    findings_count: run.findingsCount,
+    grounding: run.grounding,
+    ran_at: run.ranAt ? run.ranAt.toISOString() : null,
+    score: run.score,
+    blockers: run.blockers,
+  };
+}
+
+/**
  * Delete one agent run (+ its trace via FK cascade) AND the review it produced.
  * Workspace-scoped. `reviews.run_id` has no FK to `agent_runs`, so the review
  * (and its findings, which DO cascade from `reviews`) must be removed explicitly

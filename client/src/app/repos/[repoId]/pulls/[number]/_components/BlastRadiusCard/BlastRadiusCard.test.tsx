@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import type { BlastRadiusResponse } from "@devdigest/shared";
@@ -65,6 +65,40 @@ describe("BlastRadiusCard", () => {
     expect(screen.getByText("src/api/orders.ts:17")).toBeInTheDocument();
     // Endpoint badge under the expanded symbol.
     expect(screen.getAllByText("GET /invoices").length).toBeGreaterThan(0);
+  });
+
+  it("expands the Prior PRs timeline showing #number link, author, date and note", () => {
+    mockData = {
+      changed_symbols: [{ name: "formatCents", file: "src/lib/money.ts", kind: "function" }],
+      downstream: [
+        { symbol: "formatCents", callers: [{ name: "getOrder", file: "src/api/orders.ts", line: 17 }], endpoints_affected: [], crons_affected: [] },
+      ],
+      prior_prs: [
+        {
+          number: 401,
+          title: "Introduce public API namespace",
+          author: "deepak.r",
+          overlap: ["src/api/public/webhooks.ts"],
+          date: "2026-03-18",
+          note: "Original `/api/public/*` split-out.",
+        },
+      ],
+      reachable_endpoints: [],
+      summary: "",
+      degraded: false,
+    };
+    renderCard();
+
+    // Collapsed by default → items hidden until the header is clicked.
+    expect(screen.queryByText("Introduce public API namespace")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Prior PRs touching these files"));
+
+    const link = screen.getByText("#401").closest("a");
+    expect(link).toHaveAttribute("href", "https://github.com/acme/payments-api/pull/401");
+    expect(screen.getByText("Introduce public API namespace")).toBeInTheDocument();
+    expect(screen.getByText("deepak.r")).toBeInTheDocument();
+    expect(screen.getByText("· 2026-03-18")).toBeInTheDocument();
+    expect(screen.getByText(/Original/)).toBeInTheDocument();
   });
 
   it("shows a degraded banner when the index is incomplete", () => {

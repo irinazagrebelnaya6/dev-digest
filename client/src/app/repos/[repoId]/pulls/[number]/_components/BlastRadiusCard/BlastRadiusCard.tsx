@@ -8,7 +8,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Card, SectionLabel, Markdown, MonoLink, Badge, Button, Skeleton, EmptyState, Icon } from "@devdigest/ui";
+import { Card, SectionLabel, Markdown, MonoLink, Badge, Button, Skeleton, EmptyState, Icon, Avatar } from "@devdigest/ui";
 import { useBlast } from "@/lib/hooks/blast";
 import { githubBlobUrl, githubPrUrl } from "@/lib/github-urls";
 import { BlastGraph } from "./BlastGraph";
@@ -128,7 +128,9 @@ export function BlastRadiusCard({
 
             {view === "tree" ? (
             <div style={s.tree}>
-              {symbols.map((sym) => {
+              {symbols
+                .filter((sym) => (downstreamBySymbol.get(sym.name)?.callers.length ?? 0) > 0)
+                .map((sym) => {
                 const down = downstreamBySymbol.get(sym.name);
                 const callers = down?.callers ?? [];
                 const endpoints = down?.endpoints_affected ?? [];
@@ -213,20 +215,35 @@ export function BlastRadiusCard({
                     />
                   </span>
                 </button>
-                {priorOpen &&
-                  data!.prior_prs.map((p) => (
-                    <div key={p.number} style={s.priorItem}>
-                      <div style={s.priorTitle}>
-                        <MonoLink href={repoFullName ? githubPrUrl(repoFullName, p.number) : undefined}>
-                          #{p.number}
-                        </MonoLink>
-                        <span>{p.title}</span>
+                {priorOpen && (
+                  <div style={s.priorList}>
+                    {data!.prior_prs.map((p, i) => (
+                      <div key={p.number} style={{ ...s.priorItem, ...(i > 0 ? s.priorItemDivided : {}) }}>
+                        <span style={s.priorDot} />
+                        <div style={s.priorContent}>
+                          <div style={s.priorTitle}>
+                            <MonoLink href={repoFullName ? githubPrUrl(repoFullName, p.number) : undefined}>
+                              #{p.number}
+                            </MonoLink>
+                            <span style={s.priorTitleText}>{p.title}</span>
+                          </div>
+                          <div style={s.priorAuthor}>
+                            <Avatar name={p.author} size={20} />
+                            <span>{p.author}</span>
+                            {p.date && <span style={s.priorDate}>· {p.date}</span>}
+                          </div>
+                          {p.note ? (
+                            <div style={s.priorNote}>
+                              <Markdown>{p.note}</Markdown>
+                            </div>
+                          ) : p.overlap.length > 0 ? (
+                            <div style={s.priorNote}>{p.overlap.join(", ")}</div>
+                          ) : null}
+                        </div>
                       </div>
-                      <span style={s.priorMeta}>
-                        {p.author} · {p.overlap.join(", ")}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>

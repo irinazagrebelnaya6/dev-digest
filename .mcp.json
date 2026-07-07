@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "devdigest": {
+      "command": "pnpm",
+      "args": ["--dir", "server", "--config.verify-deps-before-run=false", "mcp"]
+    },
+    "github": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e", "GITHUB_TOOLSETS",
+        "-e", "GITHUB_READ_ONLY",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",
+        "GITHUB_TOOLSETS": "all",
+        "GITHUB_READ_ONLY": "false"
+      }
+    }
+  }
+}

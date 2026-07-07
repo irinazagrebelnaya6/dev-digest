@@ -52,6 +52,8 @@ export async function priorPullsTouchingPaths(
       number: t.pullRequests.number,
       title: t.pullRequests.title,
       author: t.pullRequests.author,
+      date: sql<string | null>`to_char(${t.pullRequests.openedAt}, 'YYYY-MM-DD')`,
+      note: t.pullRequests.body,
       overlap: sql<string[]>`array_agg(distinct ${t.prFiles.path})`,
     })
     .from(t.pullRequests)
@@ -64,7 +66,14 @@ export async function priorPullsTouchingPaths(
         inArray(t.prFiles.path, paths),
       ),
     )
-    .groupBy(t.pullRequests.id, t.pullRequests.number, t.pullRequests.title, t.pullRequests.author)
+    .groupBy(
+      t.pullRequests.id,
+      t.pullRequests.number,
+      t.pullRequests.title,
+      t.pullRequests.author,
+      t.pullRequests.openedAt,
+      t.pullRequests.body,
+    )
     .orderBy(desc(t.pullRequests.number))
     .limit(limit);
   return rows;
