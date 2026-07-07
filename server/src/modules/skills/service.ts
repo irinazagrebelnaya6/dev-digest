@@ -18,6 +18,7 @@ export interface UpdateSkillInput {
   type?: SkillType;
   body?: string;
   enabled?: boolean;
+  context_paths?: string[];
 }
 
 export interface SkillStatsDto {
@@ -68,7 +69,14 @@ export class SkillsService {
     id: string,
     patch: UpdateSkillInput,
   ): Promise<Skill | undefined> {
-    const row = await this.repo.update(workspaceId, id, patch);
+    const row = await this.repo.update(workspaceId, id, {
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.description !== undefined ? { description: patch.description } : {}),
+      ...(patch.type !== undefined ? { type: patch.type } : {}),
+      ...(patch.body !== undefined ? { body: patch.body } : {}),
+      ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+      ...(patch.context_paths !== undefined ? { contextPaths: patch.context_paths } : {}),
+    });
     return row ? toSkillDto(row) : undefined;
   }
 

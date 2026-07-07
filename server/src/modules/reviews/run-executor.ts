@@ -9,6 +9,7 @@ import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 import { computeIntent, formatIntentForPrompt } from './intent-service.js';
+import { resolveContextSpecs } from '../project-context/resolver.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -209,6 +210,20 @@ export class ReviewRunExecutor {
       }
       const skillBodies = enabledSkills.map((l) => l.skill.body);
 
+      // ---- Project Context Folder: resolve attached + skill-inherited docs ---
+      // Direct (agent.contextPaths) first, then each ENABLED linked skill's
+      // contextPaths (stored order) — orderContextSpecs (reviewer-core) dedups.
+      // Never fails the run: an unresolvable/binary/traversal path is skipped +
+      // logged (AC-9); no attached docs → empty result → the `## Project
+      // context` slot is omitted, byte-identical to the pre-feature prompt.
+      const { specs, specsRead, specsReadTokens } = await resolveContextSpecs(
+        this.container,
+        repo.clonePath,
+        (agent.contextPaths as string[] | null) ?? [],
+        enabledSkills.map((l) => (l.skill.contextPaths as string[] | null) ?? []),
+        runLog,
+      );
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -232,6 +247,10 @@ export class ReviewRunExecutor {
         // Linked + enabled skills (ordered). assemblePrompt renders them as the
         // "## Skills / rules" section below the system prompt.
         ...(skillBodies.length > 0 ? { skills: skillBodies } : {}),
+        // Project Context Folder — attached repo docs (AC-10: omit when empty
+        // so the no-attachment prompt stays byte-identical to before this
+        // feature). assemblePrompt wraps each in `wrapUntrusted` (untrusted data).
+        ...(specs.length > 0 ? { specs } : {}),
         // Intent Layer — PR intent & scope, computed once per run (see above).
         // Omitted when the compute failed; assemblePrompt omits the section.
         ...(intent ? { intent } : {}),
@@ -309,7 +328,8 @@ export class ReviewRunExecutor {
         })),
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        specs_read: specsRead,
+        ...(specsReadTokens.length > 0 ? { specsReadTokens } : {}),
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),

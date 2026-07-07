@@ -29,6 +29,11 @@ const EnvSchema = z.object({
   API_PORT: z.coerce.number().int().default(3001),
   WEB_PORT: z.coerce.number().int().default(3000),
   DEVDIGEST_CLONE_DIR: z.string().optional(),
+  // Project Context Folder — root folder names (comma-separated) the doc
+  // reader treats as "in scope" for discoverable `.md` docs. Default covers
+  // the repo's own convention (specs/docs/insights); override for repos that
+  // use different top-level names.
+  CONTEXT_ROOTS: z.string().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   // `.env` (and .env.example) ship `LOG_LEVEL=` empty; an empty string is not a
   // valid enum member, so coerce '' → undefined to fall through to the default.
@@ -59,6 +64,11 @@ export type AppConfig = {
    * EXACTLY like the ripgrep-only baseline.
    */
   repoIntelEnabled: boolean;
+  /**
+   * Root folder names (matched by exact segment, any depth) the project-context
+   * doc reader treats as discoverable. Default `['specs', 'docs', 'insights']`.
+   */
+  contextRoots: string[];
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -77,5 +87,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     webOrigin: `http://localhost:${parsed.WEB_PORT}`,
     embeddingsEnabled: parsed.EMBEDDINGS_ENABLED === 'true',
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
+    contextRoots: parsed.CONTEXT_ROOTS
+      ? parsed.CONTEXT_ROOTS.split(',').map((s) => s.trim()).filter(Boolean)
+      : ['specs', 'docs', 'insights'],
   };
 }

@@ -17,6 +17,10 @@ export const skills = pgTable('skills', {
   enabled: boolean('enabled').notNull().default(true),
   version: integer('version').notNull().default(1),
   evidenceFiles: jsonb('evidence_files').$type<string[]>(),
+  // Project Context Folder (SPEC-01, Feature 1) — repo-relative paths to
+  // attached markdown docs (specs/docs/insights). Persisted in-place (no
+  // version bump — only `body` changes bump, see modules/skills/helpers.ts).
+  contextPaths: jsonb('context_paths').$type<string[]>(),
   createdAt: now(),
 });
 

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
+import { CiFailOn, ContextPaths, Provider, ReviewStrategy } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
@@ -41,6 +41,7 @@ const CreateAgentBody = z.object({
   ci_fail_on: CiFailOn.optional(),
   repo_intel: z.boolean().optional(),
   enabled: z.boolean().optional(),
+  context_paths: ContextPaths.optional(),
 });
 
 const UpdateAgentBody = z.object({
@@ -54,6 +55,7 @@ const UpdateAgentBody = z.object({
   ci_fail_on: CiFailOn.optional(),
   repo_intel: z.boolean().optional(),
   enabled: z.boolean().optional(),
+  context_paths: ContextPaths.optional(),
 });
 
 /** Either set the whole ordered set (`skill_ids`) or link one (`skill_id`). */
@@ -99,6 +101,7 @@ export default async function agentsRoutes(appBase: FastifyInstance) {
         ...(body.ci_fail_on !== undefined ? { ci_fail_on: body.ci_fail_on } : {}),
         ...(body.repo_intel !== undefined ? { repo_intel: body.repo_intel } : {}),
         ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
+        ...(body.context_paths !== undefined ? { context_paths: body.context_paths } : {}),
       },
       userId,
     );

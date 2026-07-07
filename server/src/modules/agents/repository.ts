@@ -27,6 +27,7 @@ export interface InsertAgent {
   repoIntel?: boolean;
   enabled?: boolean;
   createdBy?: string | null;
+  contextPaths?: string[];
 }
 
 export interface UpdateAgent {
@@ -40,6 +41,7 @@ export interface UpdateAgent {
   ciFailOn?: CiFailOn;
   repoIntel?: boolean;
   enabled?: boolean;
+  contextPaths?: string[];
 }
 
 /** A skill linked to an agent (with its order), joined from agent_skills. */
@@ -107,6 +109,7 @@ export class AgentsRepository {
         ...(values.strategy !== undefined ? { strategy: values.strategy } : {}),
         ...(values.ciFailOn !== undefined ? { ciFailOn: values.ciFailOn } : {}),
         ...(values.repoIntel !== undefined ? { repoIntel: values.repoIntel } : {}),
+        ...(values.contextPaths !== undefined ? { contextPaths: values.contextPaths } : {}),
         enabled: values.enabled ?? true,
         version: INITIAL_AGENT_VERSION,
         createdBy: values.createdBy ?? null,
@@ -146,6 +149,7 @@ export class AgentsRepository {
         ...(patch.strategy !== undefined ? { strategy: patch.strategy } : {}),
         ...(patch.ciFailOn !== undefined ? { ciFailOn: patch.ciFailOn } : {}),
         ...(patch.repoIntel !== undefined ? { repoIntel: patch.repoIntel } : {}),
+        ...(patch.contextPaths !== undefined ? { contextPaths: patch.contextPaths } : {}),
         ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
         ...(configChanged ? { version: nextVersion } : {}),
       })
@@ -172,6 +176,7 @@ export class AgentsRepository {
           ci_fail_on: row.ciFailOn,
           repo_intel: row.repoIntel,
           skills,
+          context_paths: row.contextPaths ?? null,
         },
       })
       .onConflictDoNothing();
