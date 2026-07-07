@@ -13,7 +13,7 @@ tools:
   - Write
   - Edit
   - Bash
-isolation: worktree   # parallel tracks each get an isolated worktree; harmless/ignored on CC versions that don't honour it (the orchestrator also passes isolation when spawning)
+# isolation: worktree   # DISABLED: worktree baseRef=fresh branches from the default branch, which is stale vs a feature branch that is ahead of it — run implementers in the main tree instead
 ---
 
 # Implementer Agent

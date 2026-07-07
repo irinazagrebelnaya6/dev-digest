@@ -5,6 +5,21 @@ import { z } from 'zod';
  * Agents and their DTOs.
  */
 
+// ---- Project context (attached repo docs) ----
+// Repo-relative paths to markdown docs attached to an agent or skill. Only paths
+// are stored; contents are read from the reviewed repo's clone and injected at run
+// time. These strings are UNTRUSTED input — reject absolute paths and any `..`
+// segment at the boundary so a stored path can never escape the clone root.
+export const ContextPaths = z
+  .array(z.string().min(1))
+  .refine((paths) => paths.every((p) => !p.startsWith('/')), {
+    message: 'context paths must be repo-relative (no leading "/")',
+  })
+  .refine((paths) => paths.every((p) => !p.split('/').includes('..')), {
+    message: 'context paths must not contain ".." segments',
+  });
+export type ContextPaths = z.infer<typeof ContextPaths>;
+
 // ---- Conformance ----
 export const ConformanceStatus = z.enum(['implemented', 'missing', 'out_of_scope']);
 export type ConformanceStatus = z.infer<typeof ConformanceStatus>;
@@ -128,6 +143,7 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  context_paths: ContextPaths.nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
 
@@ -146,6 +162,7 @@ export const UpdateSkillBody = z.object({
   type: SkillType.optional(),
   body: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
+  context_paths: ContextPaths.optional(),
 });
 export type UpdateSkillBody = z.infer<typeof UpdateSkillBody>;
 
@@ -225,6 +242,7 @@ export const Agent = z.object({
   // agent's review prompt. Default on; gated again by the global flag.
   repo_intel: z.boolean().default(true),
   skill_count: z.number().int().optional(),
+  context_paths: ContextPaths.nullish(),
 });
 export type Agent = z.infer<typeof Agent>;
 
@@ -249,6 +267,7 @@ export const AgentVersionConfig = z.object({
   ci_fail_on: CiFailOn,
   repo_intel: z.boolean(),
   skills: z.array(z.string()),
+  context_paths: ContextPaths.nullish(),
 });
 export type AgentVersionConfig = z.infer<typeof AgentVersionConfig>;
 

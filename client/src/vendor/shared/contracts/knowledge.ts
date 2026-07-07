@@ -5,6 +5,21 @@ import { z } from 'zod';
  * Agents and their DTOs.
  */
 
+// ---- Project context (attached repo docs) ----
+// Repo-relative paths to markdown docs attached to an agent or skill. Only paths
+// are stored; contents are read from the reviewed repo's clone and injected at run
+// time. These strings are UNTRUSTED input — reject absolute paths and any `..`
+// segment at the boundary so a stored path can never escape the clone root.
+export const ContextPaths = z
+  .array(z.string().min(1))
+  .refine((paths) => paths.every((p) => !p.startsWith('/')), {
+    message: 'context paths must be repo-relative (no leading "/")',
+  })
+  .refine((paths) => paths.every((p) => !p.split('/').includes('..')), {
+    message: 'context paths must not contain ".." segments',
+  });
+export type ContextPaths = z.infer<typeof ContextPaths>;
+
 // ---- Conformance ----
 export const ConformanceStatus = z.enum(['implemented', 'missing', 'out_of_scope']);
 export type ConformanceStatus = z.infer<typeof ConformanceStatus>;
@@ -128,8 +143,28 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  context_paths: ContextPaths.nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
+
+export const CreateSkillBody = z.object({
+  name: z.string().min(1),
+  description: z.string().default(''),
+  type: SkillType,
+  source: SkillSource.default('manual'),
+  body: z.string().min(1),
+});
+export type CreateSkillBody = z.infer<typeof CreateSkillBody>;
+
+export const UpdateSkillBody = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  type: SkillType.optional(),
+  body: z.string().min(1).optional(),
+  enabled: z.boolean().optional(),
+  context_paths: ContextPaths.optional(),
+});
+export type UpdateSkillBody = z.infer<typeof UpdateSkillBody>;
 
 export const CommunitySkill = z.object({
   name: z.string(),
@@ -170,6 +205,8 @@ export const UpdateConventionBody = z.object({
 export type UpdateConventionBody = z.infer<typeof UpdateConventionBody>;
 
 // ---- Agents ----
+// 'openrouter' routes through the OpenAI-compatible API (OpenAIProvider with a
+// custom baseURL) — used by the CI runner for cheap models (DeepSeek/GLM/MiniMax).
 export const Provider = z.enum(['openai', 'anthropic', 'openrouter']);
 export type Provider = z.infer<typeof Provider>;
 
@@ -180,8 +217,12 @@ export type Provider = z.infer<typeof Provider>;
 export const ReviewStrategy = z.enum(['single-pass', 'map-reduce', 'auto']);
 export type ReviewStrategy = z.infer<typeof ReviewStrategy>;
 
-// CI gate policy — when a CI review should BLOCK (REQUEST_CHANGES + fail the
-// check) vs just comment. Deterministic from severities; acted on ONLY in CI.
+// CI gate policy — when a review should BLOCK (REQUEST_CHANGES + fail the check)
+// vs just comment. Deterministic from finding severities, NOT the model's verdict:
+//  - never:    never block, always comment (advisory only)
+//  - critical: block iff >=1 CRITICAL finding (default)
+//  - warning:  block iff >=1 WARNING or CRITICAL finding
+//  - any:      block iff >=1 finding of any severity
 export const CiFailOn = z.enum(['never', 'critical', 'warning', 'any']);
 export type CiFailOn = z.infer<typeof CiFailOn>;
 
@@ -201,6 +242,7 @@ export const Agent = z.object({
   // agent's review prompt. Default on; gated again by the global flag.
   repo_intel: z.boolean().default(true),
   skill_count: z.number().int().optional(),
+  context_paths: ContextPaths.nullish(),
 });
 export type Agent = z.infer<typeof Agent>;
 
@@ -210,3 +252,29 @@ export const AgentSkillLink = z.object({
   order: z.number().int(),
 });
 export type AgentSkillLink = z.infer<typeof AgentSkillLink>;
+
+// The immutable config snapshot captured in `agent_versions` whenever an agent's
+// config changes (everything but `enabled`). Mirrors the shape written by the
+// agents repository — provider/model/prompt/output_schema/strategy/gate/repo_intel
+// plus the ordered skill ids linked at snapshot time. Used for reproducibility
+// (eval replays a past version) and for surfacing an agent's edit history.
+export const AgentVersionConfig = z.object({
+  provider: Provider,
+  model: z.string(),
+  system_prompt: z.string(),
+  output_schema: z.unknown().nullish(),
+  strategy: ReviewStrategy,
+  ci_fail_on: CiFailOn,
+  repo_intel: z.boolean(),
+  skills: z.array(z.string()),
+  context_paths: ContextPaths.nullish(),
+});
+export type AgentVersionConfig = z.infer<typeof AgentVersionConfig>;
+
+export const AgentVersion = z.object({
+  agent_id: z.string(),
+  version: z.number().int(),
+  config: AgentVersionConfig,
+  created_at: z.string(),
+});
+export type AgentVersion = z.infer<typeof AgentVersion>;
