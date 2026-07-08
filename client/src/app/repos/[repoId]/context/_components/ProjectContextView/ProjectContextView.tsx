@@ -88,11 +88,13 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
                     {t("usedBy", { count: selected.used_by })}
                   </span>
                 </div>
-                {selected.content ? (
-                  <Markdown>{selected.content}</Markdown>
-                ) : (
-                  <p style={s.noPreview}>{t("noPreview")}</p>
-                )}
+                <div style={s.detailBody}>
+                  {selected.content ? (
+                    <Markdown>{selected.content}</Markdown>
+                  ) : (
+                    <p style={s.noPreview}>{t("noPreview")}</p>
+                  )}
+                </div>
               </>
             ) : (
               <p style={s.noPreview}>{t("selectPrompt")}</p>
