@@ -42,6 +42,19 @@ export {
 // Citation grounding — the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
 
+// Onboarding Tour — narration prompt (rendered system template + zero-LLM
+// repo facts → single structured-call message pair). Pure; caller resolves
+// the model, grounds the output against the facts, and persists the result.
+export {
+  buildOnboardingPrompt,
+  type BuildOnboardingPromptInput,
+  type OnboardingFacts,
+  type OnboardingRankedFileFact,
+  type OnboardingCriticalPathFact,
+  type OnboardingEndpointFact,
+  type OnboardingPackageJsonFact,
+} from './onboarding-prompt.js';
+
 // Project Context Folder — pure order/dedup helper for attached spec docs.
 export { orderContextSpecs } from './project-context.js';
 
