@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { orderContextSpecs } from '@devdigest/reviewer-core';
 import type { Container } from '../../platform/container.js';
 import type { RunLogger } from '../../platform/run-logger.js';
-import { looksBinary } from './reader.js';
+import { EXCLUDED_DIRS, looksBinary } from './reader.js';
 
 /**
  * Max bytes for a project-context doc, shared by the read/preview bound
@@ -142,8 +142,14 @@ export function resolveWithinClone(clonePath: string, relPath: string): string |
  * (at any depth) is sufficient, mirroring the reader's discovery scope.
  */
 export function assertWithinConfiguredRoot(relPath: string, roots: readonly string[]): boolean {
+  const segs = relPath.split('/');
+  // Never accept a write into a directory the discovery walk skips
+  // (node_modules/.git/dist/build/coverage/.next/out) — otherwise the write
+  // "succeeds" but is invisible on the next read. Keeps the write and
+  // discovery guards in lockstep.
+  if (segs.some((seg) => EXCLUDED_DIRS.has(seg))) return false;
   const rootSet = new Set(roots);
-  return relPath.split('/').some((seg) => rootSet.has(seg));
+  return segs.some((seg) => rootSet.has(seg));
 }
 
 /**

@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveContextSpecs } from '../src/modules/project-context/resolver.js';
+import { assertWithinConfiguredRoot, resolveContextSpecs } from '../src/modules/project-context/resolver.js';
 import { RunLogger } from '../src/platform/run-logger.js';
 import { RunBus } from '../src/platform/sse.js';
 import type { Container } from '../src/platform/container.js';
@@ -151,5 +151,26 @@ describe('resolveContextSpecs', () => {
       makeLogger(),
     );
     expect(result.specsRead).toEqual(['docs/a.md', 'docs/b.md']);
+  });
+});
+
+describe('assertWithinConfiguredRoot (write in-root guard)', () => {
+  const ROOTS = ['specs', 'docs', 'insights'];
+
+  it('accepts a path under a configured root at any depth', () => {
+    expect(assertWithinConfiguredRoot('specs/a.md', ROOTS)).toBe(true);
+    expect(assertWithinConfiguredRoot('docs/guide/b.md', ROOTS)).toBe(true);
+  });
+
+  it('rejects a path with no configured-root segment', () => {
+    expect(assertWithinConfiguredRoot('README.md', ROOTS)).toBe(false);
+    expect(assertWithinConfiguredRoot('src/notes.md', ROOTS)).toBe(false);
+  });
+
+  it('rejects a path under an excluded dir even if it also names a root (write/discovery lockstep)', () => {
+    // discovery skips node_modules/.git/dist/… — a write there would "succeed" but be invisible.
+    expect(assertWithinConfiguredRoot('node_modules/pkg/docs/x.md', ROOTS)).toBe(false);
+    expect(assertWithinConfiguredRoot('dist/specs/x.md', ROOTS)).toBe(false);
+    expect(assertWithinConfiguredRoot('.git/docs/x.md', ROOTS)).toBe(false);
   });
 });

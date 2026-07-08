@@ -34,7 +34,7 @@ const SNIFF_BYTES = 8000;
  * `repo-intel/pipeline/walk.ts`'s EXCLUDED_DIRS (kept local to avoid a
  * cross-module import).
  */
-const EXCLUDED_DIRS: ReadonlySet<string> = new Set([
+export const EXCLUDED_DIRS: ReadonlySet<string> = new Set([
   'node_modules',
   '.git',
   'dist',
