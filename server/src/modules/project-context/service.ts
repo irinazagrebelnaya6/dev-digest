@@ -4,6 +4,7 @@ import { NotFoundError } from '../../platform/errors.js';
 import { RepoRepository } from '../repos/repository.js';
 import * as t from '../../db/schema.js';
 import { discoverContextDocs } from './reader.js';
+import { readContextDoc } from './resolver.js';
 
 /**
  * Project Context Folder (SPEC-01, Feature 1) — screen data for
@@ -16,6 +17,7 @@ export interface ProjectContextDocDto {
   path: string;
   badge: string;
   used_by: number;
+  content: string | null;
 }
 
 export interface ProjectContextResult {
@@ -54,11 +56,14 @@ export class ProjectContextService {
     }
 
     const usedByCounts = await this.usedByCounts(workspaceId);
-    const docs = discovered.map((d) => ({
-      path: d.path,
-      badge: d.badge,
-      used_by: usedByCounts.get(d.path) ?? 0,
-    }));
+    const docs = await Promise.all(
+      discovered.map(async (d) => ({
+        path: d.path,
+        badge: d.badge,
+        used_by: usedByCounts.get(d.path) ?? 0,
+        content: await readContextDoc(repo.clonePath!, d.path),
+      })),
+    );
     return { docs, degraded: false };
   }
 

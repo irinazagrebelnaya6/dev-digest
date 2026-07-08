@@ -274,8 +274,8 @@ d('Project Context Folder — API (Testcontainers pg)', () => {
       expect(body.degraded).toBe(false);
       expect(body.docs).toEqual(
         expect.arrayContaining([
-          { path: 'docs/guide.md', badge: 'docs', used_by: 1 },
-          { path: 'specs/feature.md', badge: 'specs', used_by: 1 },
+          expect.objectContaining({ path: 'docs/guide.md', badge: 'docs', used_by: 1 }),
+          expect.objectContaining({ path: 'specs/feature.md', badge: 'specs', used_by: 1 }),
         ]),
       );
 

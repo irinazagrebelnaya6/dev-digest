@@ -8,28 +8,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import type { ProjectContextDoc, ProjectContextResponse } from "@devdigest/shared";
 import { api } from "../api";
 import { queryKeys } from "../query-keys";
 
-/** One discoverable markdown doc in the reviewed repo's clone. */
-export interface ProjectContextDoc {
-  /** Repo-relative, forward-slash path (e.g. "specs/SPEC-01.md"). */
-  path: string;
-  /** Badge derived from the nearest ancestor root folder (e.g. "specs"). */
-  type: string;
-  /** Distinct agents referencing this doc directly or via an inherited skill. */
-  used_by: number;
-  /** Full markdown body, when the server includes it for the preview screen.
-      Read/preview only — never editable client-side (AC-13 screen scope). */
-  content?: string | null;
-}
-
-export interface ProjectContextResponse {
-  docs: ProjectContextDoc[];
-  /** True when the repo isn't cloned yet / the walk couldn't run — still a 200. */
-  degraded: boolean;
-  reason?: string | null;
-}
+// Single source of truth = vendor/shared; re-export so any consumer importing
+// these types from this hook keeps working.
+export type { ProjectContextDoc, ProjectContextResponse };
 
 /** Discoverable docs for a repo (`GET /repos/:id/project-context`). Degrades to
     an empty+degraded list (never an error) when the repo has no clone yet. */

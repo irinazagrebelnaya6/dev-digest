@@ -65,7 +65,7 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
                   <div style={s.rowTop}>
                     <Icon.FileText size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                     <span style={s.path}>{doc.path}</span>
-                    <span style={s.badge}>{doc.type}</span>
+                    <span style={s.badge}>{doc.badge}</span>
                   </div>
                   <span style={s.usedBy}>
                     <Icon.Users size={12} />
@@ -82,7 +82,7 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
                 <div style={s.detailHeader}>
                   <Icon.FileText size={16} style={{ color: "var(--text-muted)" }} />
                   <span style={s.detailPath}>{selected.path}</span>
-                  <span style={s.badge}>{selected.type}</span>
+                  <span style={s.badge}>{selected.badge}</span>
                   <span style={s.usedBy}>
                     <Icon.Users size={12} />
                     {t("usedBy", { count: selected.used_by })}

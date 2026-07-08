@@ -123,3 +123,27 @@ function resolveWithinClone(clonePath: string, relPath: string): string | undefi
   if (resolved !== root && !resolved.startsWith(root + sep)) return undefined;
   return resolved;
 }
+
+/**
+ * Read one discovered doc's body for the read/preview screen, traversal-safe.
+ * Returns the text, or `null` when the path escapes the clone, isn't a regular
+ * file, is binary, or exceeds `maxBytes` (bounds the screen payload). Never
+ * throws — the screen degrades to "no preview" rather than failing.
+ */
+export async function readContextDoc(
+  clonePath: string,
+  relPath: string,
+  maxBytes = 256 * 1024,
+): Promise<string | null> {
+  const resolved = resolveWithinClone(clonePath, relPath);
+  if (!resolved) return null;
+  try {
+    const stat = await lstat(resolved);
+    if (stat.isSymbolicLink() || !stat.isFile() || stat.size > maxBytes) return null;
+    const buf = await readFile(resolved);
+    if (looksBinary(buf)) return null;
+    return buf.toString('utf8');
+  } catch {
+    return null;
+  }
+}

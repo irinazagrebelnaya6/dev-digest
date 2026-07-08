@@ -88,8 +88,8 @@ describe("ContextTab", () => {
   it("adds a discovered doc from the picker", () => {
     mockContext = {
       docs: [
-        { path: "specs/SPEC-01.md", type: "specs", used_by: 1 },
-        { path: "docs/architecture.md", type: "docs", used_by: 0 },
+        { path: "specs/SPEC-01.md", badge: "specs", used_by: 1 },
+        { path: "docs/architecture.md", badge: "docs", used_by: 0 },
       ],
       degraded: false,
     };
@@ -105,7 +105,7 @@ describe("ContextTab", () => {
   });
 
   it("shows a message when the repo has no more discoverable docs", () => {
-    mockContext = { docs: [{ path: "specs/SPEC-01.md", type: "specs", used_by: 1 }], degraded: false };
+    mockContext = { docs: [{ path: "specs/SPEC-01.md", badge: "specs", used_by: 1 }], degraded: false };
     renderTab(AGENT);
     expect(screen.getByText(/No more specs\/docs\/insights/)).toBeInTheDocument();
   });

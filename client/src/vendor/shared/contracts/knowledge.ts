@@ -20,6 +20,23 @@ export const ContextPaths = z
   });
 export type ContextPaths = z.infer<typeof ContextPaths>;
 
+// Screen response for `GET /repos/:id/project-context` (read/preview only).
+// Shared so the server route and the client hook cannot drift.
+export const ProjectContextDoc = z.object({
+  path: z.string(),
+  badge: z.string(),
+  used_by: z.number().int(),
+  content: z.string().nullish(),
+});
+export type ProjectContextDoc = z.infer<typeof ProjectContextDoc>;
+
+export const ProjectContextResponse = z.object({
+  docs: z.array(ProjectContextDoc),
+  degraded: z.boolean(),
+  reason: z.string().nullish(),
+});
+export type ProjectContextResponse = z.infer<typeof ProjectContextResponse>;
+
 // ---- Conformance ----
 export const ConformanceStatus = z.enum(['implemented', 'missing', 'out_of_scope']);
 export type ConformanceStatus = z.infer<typeof ConformanceStatus>;

@@ -33,8 +33,8 @@ describe("ProjectContextView", () => {
   it("lists discovered docs with path, type badge, and used-by count", () => {
     mockData = {
       docs: [
-        { path: "specs/SPEC-01.md", type: "specs", used_by: 2, content: "# Spec\nBody." },
-        { path: "docs/architecture.md", type: "docs", used_by: 0, content: null },
+        { path: "specs/SPEC-01.md", badge: "specs", used_by: 2, content: "# Spec\nBody." },
+        { path: "docs/architecture.md", badge: "docs", used_by: 0, content: null },
       ],
       degraded: false,
     };
@@ -50,8 +50,8 @@ describe("ProjectContextView", () => {
   it("previews the selected doc's markdown and falls back when no content is available", () => {
     mockData = {
       docs: [
-        { path: "specs/SPEC-01.md", type: "specs", used_by: 1, content: "# Spec\n\nSome body text." },
-        { path: "docs/architecture.md", type: "docs", used_by: 0, content: null },
+        { path: "specs/SPEC-01.md", badge: "specs", used_by: 1, content: "# Spec\n\nSome body text." },
+        { path: "docs/architecture.md", badge: "docs", used_by: 0, content: null },
       ],
       degraded: false,
     };
@@ -77,7 +77,7 @@ describe("ProjectContextView", () => {
 
   it("does not render an upload/edit toolbar (read/preview only)", () => {
     mockData = {
-      docs: [{ path: "specs/SPEC-01.md", type: "specs", used_by: 1, content: "# Spec" }],
+      docs: [{ path: "specs/SPEC-01.md", badge: "specs", used_by: 1, content: "# Spec" }],
       degraded: false,
     };
     renderView();

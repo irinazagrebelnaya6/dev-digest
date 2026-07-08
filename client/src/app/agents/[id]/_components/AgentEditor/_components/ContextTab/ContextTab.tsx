@@ -120,7 +120,7 @@ export function ContextTab({ agent }: { agent: Agent }) {
                 >
                   <Icon.Plus size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                   <span style={s.path}>{doc.path}</span>
-                  <span style={s.badge}>{doc.type}</span>
+                  <span style={s.badge}>{doc.badge}</span>
                 </button>
               </li>
             ))}

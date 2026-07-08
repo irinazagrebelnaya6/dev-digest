@@ -80,8 +80,8 @@ describe("ContextSection", () => {
   it("attaches a discovered doc from the picker", () => {
     mockContext = {
       docs: [
-        { path: "docs/architecture.md", type: "docs", used_by: 2 },
-        { path: "insights/2026-07-07.md", type: "insights", used_by: 0 },
+        { path: "docs/architecture.md", badge: "docs", used_by: 2 },
+        { path: "insights/2026-07-07.md", badge: "insights", used_by: 0 },
       ],
       degraded: false,
     };
