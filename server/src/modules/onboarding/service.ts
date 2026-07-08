@@ -127,10 +127,13 @@ export class OnboardingService {
         reason: null,
         fileCount: facts.fileCount,
       };
-    } catch {
+    } catch (err) {
       // The single call failed (provider error, schema-validation exhaustion,
-      // etc). Degrade to the skeleton, HTTP 200, never persist a bad tour
-      // (AC-5) — a later view/regenerate retries the real generation.
+      // config/API-key error, etc). Log it FIRST so a genuine misconfiguration
+      // isn't silently indistinguishable from a normal degraded tour, then
+      // degrade to the skeleton, HTTP 200, never persist a bad tour (AC-5) —
+      // a later view/regenerate retries the real generation.
+      log?.warn({ err }, `onboarding: generation failed, degrading to skeleton for ${repo.fullName}`);
       return {
         tour: buildSkeleton(facts),
         generatedAt: new Date().toISOString(),
