@@ -4,6 +4,8 @@ import * as t from './schema.js';
 import { eq, and } from 'drizzle-orm';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { cp, mkdir } from 'node:fs/promises';
 import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
@@ -15,11 +17,40 @@ const DEFAULT_PROVIDER = 'openrouter' as const;
 const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
 
 /**
- * Committed demo "clone" for the Project Context screen — a `.devdigest/specs/`
- * tree of sample specs so the feature renders like the design out of the box,
- * without needing a real repo clone. Pointed to by `acme/payments-api`.
+ * Committed, read-only demo fixtures for the Project Context screen — a
+ * `.devdigest/specs/` tree of sample specs. NEVER pointed to directly by a
+ * repo's `clonePath` (SPEC-02, AC-12): authoring writes must never land in
+ * committed repo source under `server/src/db/`. The writer's fixtures-dir
+ * guard (`resolver.ts#isUnderFixturesDir`) refuses any write that resolves
+ * here, as a backstop to this seed always pointing elsewhere.
  */
-const DEMO_CONTEXT_CLONE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/project-context');
+const FIXTURES_CONTEXT_CLONE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/project-context');
+
+/**
+ * Git-ignored writable clone the demo repo (`acme/payments-api`) actually
+ * points its `clonePath` at (SPEC-02, AC-12) — a one-time copy of the
+ * committed fixtures into `server/clones/` (already git-ignored, see
+ * `.gitignore`), so the Project Context authoring toolbar has somewhere real
+ * to write without ever mutating the committed fixtures.
+ */
+const WRITABLE_CONTEXT_CLONE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../clones/acme/payments-api-demo',
+);
+
+/**
+ * Copy the committed fixtures into the writable clone dir, but ONLY if it
+ * doesn't exist yet — create-if-missing, never overwrite, so re-running
+ * `db:seed` never clobbers a developer's local edits made through the
+ * authoring UI.
+ */
+async function ensureWritableDemoClone(): Promise<string> {
+  if (!existsSync(WRITABLE_CONTEXT_CLONE)) {
+    await mkdir(dirname(WRITABLE_CONTEXT_CLONE), { recursive: true });
+    await cp(FIXTURES_CONTEXT_CLONE, WRITABLE_CONTEXT_CLONE, { recursive: true });
+  }
+  return WRITABLE_CONTEXT_CLONE;
+}
 
 /**
  * Seed the starter's demo data. Idempotent: re-running upserts the default
@@ -80,6 +111,8 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
   }
 
   // ---- demo repo (acme/payments-api) ----
+  const demoClonePath = await ensureWritableDemoClone();
+
   let [repo] = await db
     .select()
     .from(t.repos)
@@ -93,14 +126,15 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         name: 'payments-api',
         fullName: 'acme/payments-api',
         defaultBranch: 'main',
-        clonePath: DEMO_CONTEXT_CLONE,
+        clonePath: demoClonePath,
         createdBy: userId,
       })
       .returning();
   }
-  // Backfill the demo clone path on re-seed (existing rows created before this).
-  if (repo && repo.clonePath !== DEMO_CONTEXT_CLONE) {
-    await db.update(t.repos).set({ clonePath: DEMO_CONTEXT_CLONE }).where(eq(t.repos.id, repo!.id));
+  // Backfill the writable clone path on re-seed (existing rows created before
+  // this, or still pointed at the old read-only fixtures dir).
+  if (repo && repo.clonePath !== demoClonePath) {
+    await db.update(t.repos).set({ clonePath: demoClonePath }).where(eq(t.repos.id, repo!.id));
   }
   const repoId = repo!.id;
 

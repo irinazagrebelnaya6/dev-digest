@@ -10,10 +10,19 @@
  */
 import { readFile, lstat } from 'node:fs/promises';
 import { isAbsolute, resolve as resolvePath, sep } from 'node:path';
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { orderContextSpecs } from '@devdigest/reviewer-core';
 import type { Container } from '../../platform/container.js';
 import type { RunLogger } from '../../platform/run-logger.js';
 import { looksBinary } from './reader.js';
+
+/**
+ * Max bytes for a project-context doc, shared by the read/preview bound
+ * (`readContextDoc`) and the write-path size guard (`writer.ts`, AC-8) so the
+ * two caps can never drift apart.
+ */
+export const MAX_DOC_BYTES = 256 * 1024;
 
 export interface ResolvedContext {
   /** Ordered, resolved file contents — pass straight through as `specs`. */
@@ -110,18 +119,58 @@ export async function resolveContextSpecs(
 }
 
 /**
- * Refuse any path that resolves outside `clonePath` (AC-15). Returns the
+ * Refuse any path that resolves outside `clonePath` (AC-15/AC-6). Returns the
  * resolved absolute path, or `undefined` when it escapes / is absolute.
  * Defense-in-depth: the write boundary (`ContextPaths` zod schema) already
  * rejects absolute paths and `..` segments, but a stored path is untrusted
- * data by the time it reaches here.
+ * data by the time it reaches here. Exported so the write path (`writer.ts`)
+ * reuses the exact same traversal guard as the run-time resolver + reader.
  */
-function resolveWithinClone(clonePath: string, relPath: string): string | undefined {
+export function resolveWithinClone(clonePath: string, relPath: string): string | undefined {
   if (isAbsolute(relPath)) return undefined;
   const root = resolvePath(clonePath);
   const resolved = resolvePath(root, relPath);
   if (resolved !== root && !resolved.startsWith(root + sep)) return undefined;
   return resolved;
+}
+
+/**
+ * In-root check (AC-6): a write target must not only resolve within the
+ * clone (`resolveWithinClone`) but also lie under one of the configured
+ * context roots (default `specs`/`docs`/`insights`, `platform/config.ts`).
+ * Nearest-ancestor semantics don't matter here — any matching path segment
+ * (at any depth) is sufficient, mirroring the reader's discovery scope.
+ */
+export function assertWithinConfiguredRoot(relPath: string, roots: readonly string[]): boolean {
+  const rootSet = new Set(roots);
+  return relPath.split('/').some((seg) => rootSet.has(seg));
+}
+
+/**
+ * sha256 content hash (hex) used as an optimistic-concurrency precondition
+ * (AC-13, ETag-style). Computed fresh from on-disk content at read AND
+ * re-verify time — never trusted from the client.
+ */
+export function hashContent(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+/**
+ * Absolute path to the committed, read-only demo fixtures
+ * (`server/src/db/fixtures`), resolved relative to this module so it works
+ * regardless of process cwd.
+ */
+const FIXTURES_DIR = resolvePath(fileURLToPath(new URL('../../db/fixtures', import.meta.url)));
+
+/**
+ * Hard backstop for AC-12: refuse every write whose repo clone resolves
+ * under the committed fixtures tree, even if a `clonePath` is misconfigured
+ * to point there. Checked against the write's resolved absolute target
+ * (not just `clonePath`) so it fails closed regardless of caller.
+ */
+export function isUnderFixturesDir(absPath: string): boolean {
+  const resolved = resolvePath(absPath);
+  return resolved === FIXTURES_DIR || resolved.startsWith(FIXTURES_DIR + sep);
 }
 
 /**
@@ -133,7 +182,7 @@ function resolveWithinClone(clonePath: string, relPath: string): string | undefi
 export async function readContextDoc(
   clonePath: string,
   relPath: string,
-  maxBytes = 256 * 1024,
+  maxBytes = MAX_DOC_BYTES,
 ): Promise<string | null> {
   const resolved = resolveWithinClone(clonePath, relPath);
   if (!resolved) return null;

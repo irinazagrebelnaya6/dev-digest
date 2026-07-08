@@ -1,10 +1,18 @@
 import { and, eq } from 'drizzle-orm';
+import type {
+  ContextFolderResult,
+  ContextWriteResult,
+  CreateContextFolderBody,
+  UploadContextDocBody,
+  WriteContextDocBody,
+} from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
-import { NotFoundError } from '../../platform/errors.js';
+import { NotFoundError, ValidationError } from '../../platform/errors.js';
 import { RepoRepository } from '../repos/repository.js';
 import * as t from '../../db/schema.js';
 import { discoverContextDocs } from './reader.js';
-import { readContextDoc } from './resolver.js';
+import { hashContent, readContextDoc } from './resolver.js';
+import { createContextFolder, uploadContextDoc, writeContextDoc } from './writer.js';
 
 /**
  * Project Context Folder (SPEC-01, Feature 1) — screen data for
@@ -18,6 +26,8 @@ export interface ProjectContextDocDto {
   badge: string;
   used_by: number;
   content: string | null;
+  /** sha256 content hash — echoed back by the client as a Save precondition (AC-13). */
+  hash: string | null;
 }
 
 export interface ProjectContextResult {
@@ -57,14 +67,86 @@ export class ProjectContextService {
 
     const usedByCounts = await this.usedByCounts(workspaceId);
     const docs = await Promise.all(
-      discovered.map(async (d) => ({
-        path: d.path,
-        badge: d.badge,
-        used_by: usedByCounts.get(d.path) ?? 0,
-        content: await readContextDoc(repo.clonePath!, d.path),
-      })),
+      discovered.map(async (d) => {
+        const content = await readContextDoc(repo.clonePath!, d.path);
+        return {
+          path: d.path,
+          badge: d.badge,
+          used_by: usedByCounts.get(d.path) ?? 0,
+          content,
+          hash: content !== null ? hashContent(content) : null,
+        };
+      }),
     );
     return { docs, degraded: false };
+  }
+
+  /**
+   * Create or update one doc in the repo's writable clone (AC-9/AC-10/AC-13).
+   * Tenancy via `getById`; refuses when the repo has no clone at all (AC-17)
+   * — the fixtures-dir + traversal/in-root/`.md`/size/hash/collision guards
+   * live in `writer.ts` and surface as a structured `AppError` (AC-16).
+   */
+  async createOrUpdateDoc(
+    workspaceId: string,
+    repoId: string,
+    body: WriteContextDocBody,
+  ): Promise<ContextWriteResult> {
+    const repo = await this.repos.getById(workspaceId, repoId);
+    if (!repo) throw new NotFoundError('Repo not found');
+    if (!repo.clonePath) {
+      throw new ValidationError('this repo has not been cloned yet — nothing to write to');
+    }
+
+    const written = await writeContextDoc(repo.clonePath, this.container.config.contextRoots, body);
+    return { doc: await this.toDocDto(workspaceId, written) };
+  }
+
+  /** Upload a new doc into the currently-displayed root (AC-10/AC-11). */
+  async uploadDoc(
+    workspaceId: string,
+    repoId: string,
+    body: UploadContextDocBody,
+  ): Promise<ContextWriteResult> {
+    const repo = await this.repos.getById(workspaceId, repoId);
+    if (!repo) throw new NotFoundError('Repo not found');
+    if (!repo.clonePath) {
+      throw new ValidationError('this repo has not been cloned yet — nothing to write to');
+    }
+
+    const written = await uploadContextDoc(repo.clonePath, this.container.config.contextRoots, body);
+    return { doc: await this.toDocDto(workspaceId, written) };
+  }
+
+  /** Create a subdirectory under a configured root inside the clone (AC-11). */
+  async createFolder(
+    workspaceId: string,
+    repoId: string,
+    body: CreateContextFolderBody,
+  ): Promise<ContextFolderResult> {
+    const repo = await this.repos.getById(workspaceId, repoId);
+    if (!repo) throw new NotFoundError('Repo not found');
+    if (!repo.clonePath) {
+      throw new ValidationError('this repo has not been cloned yet — nothing to write to');
+    }
+
+    await createContextFolder(repo.clonePath, this.container.config.contextRoots, body);
+    return { ok: true };
+  }
+
+  /** Build the response DTO for a just-written doc, incl. its fresh `used_by` count. */
+  private async toDocDto(
+    workspaceId: string,
+    written: { path: string; content: string; hash: string; badge: string },
+  ): Promise<ProjectContextDocDto> {
+    const usedByCounts = await this.usedByCounts(workspaceId);
+    return {
+      path: written.path,
+      badge: written.badge,
+      used_by: usedByCounts.get(written.path) ?? 0,
+      content: written.content,
+      hash: written.hash,
+    };
   }
 
   /**
