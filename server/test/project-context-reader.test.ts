@@ -80,6 +80,16 @@ describe('discoverContextDocs', () => {
     expect(docs.map((d) => d.path)).toEqual(['adr/decision.md']);
   });
 
+  it('excludes heavy/generated dirs (node_modules, .git, dist) even when they hold a docs/ tree', async () => {
+    await writeFileAt(root, 'node_modules/pkg/docs/dep.md', '# dependency doc');
+    await writeFileAt(root, '.git/docs/hook.md', '# git internal');
+    await writeFileAt(root, 'dist/docs/built.md', '# build output');
+    await writeFileAt(root, 'docs/real.md', '# real project doc');
+
+    const docs = await discoverContextDocs(root, DEFAULT_ROOTS);
+    expect(docs.map((d) => d.path)).toEqual(['docs/real.md']);
+  });
+
   it('skips a symlinked directory (never follows symlinks)', async () => {
     await writeFileAt(root, 'specs/real.md', '# real');
     await mkdir(join(root, 'other-specs'));

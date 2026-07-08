@@ -27,6 +27,22 @@ export interface ContextDoc {
 const MD_EXT = '.md';
 /** Bytes sniffed from the start of a file to heuristically detect binary content. */
 const SNIFF_BYTES = 8000;
+/**
+ * Directories never walked — heavy/generated trees that never hold project
+ * docs and would otherwise surface dependency markdown (e.g.
+ * `node_modules/**​/docs/*.md`) and slow discovery to a crawl. Mirrors
+ * `repo-intel/pipeline/walk.ts`'s EXCLUDED_DIRS (kept local to avoid a
+ * cross-module import).
+ */
+const EXCLUDED_DIRS: ReadonlySet<string> = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'coverage',
+  '.next',
+  'out',
+]);
 
 /**
  * Heuristic binary sniff: a NUL byte in the first `SNIFF_BYTES` is a strong
@@ -76,6 +92,9 @@ async function walkDir(
     const full = join(dir, name);
 
     if (entry.isDirectory()) {
+      // Never descend into heavy/generated trees — a dependency's own
+      // `docs/`/`specs/` is not this project's context.
+      if (EXCLUDED_DIRS.has(name)) continue;
       // Nearest-ancestor wins: entering a directory whose name matches a
       // configured root re-badges everything beneath it, even if an outer
       // ancestor already matched a (different) root.
