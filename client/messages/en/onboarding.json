@@ -1,15 +1,37 @@
 {
   "title": "Onboarding Tour",
-  "sections": "Sections",
-  "sectionCount": "{count} sections",
-  "regenerate": "Regenerate",
-  "regenerating": "Regenerating…",
-  "unknownError": "Unknown error",
-  "generate": {
-    "title": "Generate onboarding tour",
-    "body": "DevDigest indexes the repo and specs, then writes a 5-section guided tour: overview, architecture, key modules, getting started, and conventions & gotchas.",
-    "cta": "Generate onboarding tour",
-    "generating": "Generating…"
+  "onThisPage": "On this page",
+  "header": {
+    "title": "Onboarding for {repo}",
+    "subtitle": "Generated from index of {fileCount} files · last refreshed {generatedAt}",
+    "regenerate": "Regenerate",
+    "regenerating": "Regenerating…",
+    "regenerateError": "Regeneration failed. Please try again.",
+    "shareLink": "Share link",
+    "linkCopied": "Link copied"
+  },
+  "sections": {
+    "architecture": "Architecture",
+    "critical_paths": "Critical paths",
+    "run_local": "How to run locally",
+    "reading_path": "Guided reading path",
+    "first_tasks": "First tasks"
+  },
+  "criticalPaths": {
+    "open": "Open"
+  },
+  "firstTasks": {
+    "taskFallback": "Task {n}",
+    "complexity": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    }
+  },
+  "copy": "Copy",
+  "degraded": {
+    "index_degraded": "generated from partial index",
+    "generation_failed": "narrative unavailable — showing facts"
   },
   "loadError": {
     "title": "Couldn’t load the onboarding tour"
