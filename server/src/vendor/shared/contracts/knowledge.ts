@@ -110,11 +110,32 @@ export const OnboardingLink = z.object({
 });
 export type OnboardingLink = z.infer<typeof OnboardingLink>;
 
+// Node/edge JSON diagram (D7) — replaces an earlier mermaid-string design.
+// Rendered client-side as inline SVG (no mermaid runtime, CSP-safe). Present
+// ONLY on the `architecture` section; `null`/absent on the other four kinds.
+export const OnboardingDiagram = z.object({
+  nodes: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      kind: z.string().nullish(),
+    }),
+  ),
+  edges: z.array(
+    z.object({
+      from: z.string(),
+      to: z.string(),
+      label: z.string().nullish(),
+    }),
+  ),
+});
+export type OnboardingDiagram = z.infer<typeof OnboardingDiagram>;
+
 export const OnboardingSection = z.object({
   kind: z.string(),
   title: z.string(),
   body: z.string(), // markdown
-  diagram: z.string().nullish(), // mermaid
+  diagram: OnboardingDiagram.nullish(), // node/edge JSON, architecture-only
   links: z.array(OnboardingLink),
 });
 export type OnboardingSection = z.infer<typeof OnboardingSection>;
@@ -123,6 +144,25 @@ export const Onboarding = z.object({
   sections: z.array(OnboardingSection),
 });
 export type Onboarding = z.infer<typeof Onboarding>;
+
+// Why a tour fell back to the deterministic skeleton (AC-5): `index_degraded`
+// when the repo-intel index isn't usable, `generation_failed` when the single
+// structured LLM call threw. Never surfaced as a hard error — always HTTP 200.
+export const OnboardingDegradedReason = z.enum(['index_degraded', 'generation_failed']);
+export type OnboardingDegradedReason = z.infer<typeof OnboardingDegradedReason>;
+
+// Response contract for `GET /repos/:id/onboarding` and
+// `POST /repos/:id/onboarding/regenerate`. `fileCount` backs the header's
+// "generated from index of N files" line; `reason` is set only when
+// `degraded` is true.
+export const OnboardingResponse = z.object({
+  tour: Onboarding,
+  generatedAt: z.string(),
+  degraded: z.boolean(),
+  reason: OnboardingDegradedReason.nullish(),
+  fileCount: z.number().int(),
+});
+export type OnboardingResponse = z.infer<typeof OnboardingResponse>;
 
 // ---- Eval ----
 export const EvalPerTrace = z.object({
