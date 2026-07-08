@@ -27,6 +27,10 @@ export const ProjectContextDoc = z.object({
   badge: z.string(),
   used_by: z.number().int(),
   content: z.string().nullish(),
+  // Content hash/etag (sha256 of `content`) — echoed back by the client on
+  // Save as an optimistic-concurrency precondition (SPEC-02). Additive,
+  // `.nullish()` for back-compat with the SPEC-01 read-only response shape.
+  hash: z.string().nullish(),
 });
 export type ProjectContextDoc = z.infer<typeof ProjectContextDoc>;
 
@@ -36,6 +40,48 @@ export const ProjectContextResponse = z.object({
   reason: z.string().nullish(),
 });
 export type ProjectContextResponse = z.infer<typeof ProjectContextResponse>;
+
+// ---- Project context — write path (SPEC-02: authoring toolbar + editor) ----
+// Writes land only in the repo clone's working tree on disk (no git commit/push).
+// `path` is UNTRUSTED input — validated against `ContextPaths` (repo-relative, no
+// `..`, no absolute) at the boundary; the server additionally requires it to
+// resolve within the clone AND within a configured context root.
+
+// Single route for create+update: `hash` present = update precondition (409 on
+// mismatch), absent = create. `overwrite` governs create-time path collisions.
+export const WriteContextDocBody = z.object({
+  path: z.string().min(1),
+  content: z.string(),
+  hash: z.string().nullish(),
+  overwrite: z.boolean().optional(),
+});
+export type WriteContextDocBody = z.infer<typeof WriteContextDocBody>;
+
+// Upload lands in the currently-displayed root; `path` is the target within it.
+export const UploadContextDocBody = z.object({
+  path: z.string().min(1),
+  content: z.string(),
+  overwrite: z.boolean().optional(),
+});
+export type UploadContextDocBody = z.infer<typeof UploadContextDocBody>;
+
+export const CreateContextFolderBody = z.object({
+  path: z.string().min(1),
+});
+export type CreateContextFolderBody = z.infer<typeof CreateContextFolderBody>;
+
+// Returned by the doc write/upload routes: the written/updated doc, including
+// its freshly computed `hash`.
+export const ContextWriteResult = z.object({
+  doc: ProjectContextDoc,
+});
+export type ContextWriteResult = z.infer<typeof ContextWriteResult>;
+
+// Returned by the folder-create route.
+export const ContextFolderResult = z.object({
+  ok: z.literal(true),
+});
+export type ContextFolderResult = z.infer<typeof ContextFolderResult>;
 
 // ---- Conformance ----
 export const ConformanceStatus = z.enum(['implemented', 'missing', 'out_of_scope']);
