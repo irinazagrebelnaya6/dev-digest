@@ -1,6 +1,6 @@
 {
   "title": "Project Context",
-  "subtitle": "Markdown docs discoverable under specs/docs/insights in this repo — read/preview only. Attach them to an agent or skill to inject their contents into review prompts.",
+  "subtitle": "Markdown docs discoverable under specs/docs/insights in this repo. Attach them to an agent or skill to inject their contents into review prompts.",
   "listLabel": "Discoverable project context docs",
   "usedBy": "Used by {count, plural, one {# agent} other {# agents}}",
   "selectPrompt": "Select a doc to preview its contents.",
@@ -9,5 +9,37 @@
   "emptyTitle": "No project context docs found",
   "emptyBody": "Add .md files under specs/, docs/, or insights/ in this repository so agents and skills can reference them.",
   "degraded": "This repo isn't fully cloned yet — project context may be incomplete.",
-  "degradedWithReason": "Project context is degraded ({reason}) — the list below may be incomplete."
+  "degradedWithReason": "Project context is degraded ({reason}) — the list below may be incomplete.",
+  "toolbar": {
+    "newDoc": "New doc",
+    "newFolder": "New folder",
+    "upload": "Upload",
+    "refresh": "Refresh",
+    "open": "Open",
+    "cancel": "Cancel",
+    "rootLabel": "Active context root",
+    "newDocPathLabel": "New doc path",
+    "newDocPathPlaceholder": "specs/new-doc.md",
+    "newDocCreate": "Create",
+    "newFolderPathLabel": "New folder path",
+    "newFolderPathPlaceholder": "specs/new-folder",
+    "newFolderCreate": "Create folder",
+    "uploadError": "Could not upload: {message}"
+  },
+  "editor": {
+    "modeLabel": "Preview or edit this doc",
+    "previewTab": "Preview",
+    "editTab": "Edit",
+    "editAriaLabel": "Raw markdown source for {path}",
+    "save": "Save",
+    "unsavedHint": "Unsaved changes",
+    "noWritableClone": "This repo has no writable clone yet — editing is disabled.",
+    "conflictTitle": "This doc changed since you loaded it",
+    "conflictBody": "Someone (or something) else saved a newer version. Reload to see it, or overwrite it with your current edit.",
+    "collisionTitle": "A doc already exists at this path",
+    "collisionBody": "Reload to see the existing content, or overwrite it with your current edit.",
+    "reload": "Reload latest",
+    "overwrite": "Overwrite anyway",
+    "genericError": "Could not save: {message}"
+  }
 }
