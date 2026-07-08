@@ -77,6 +77,15 @@ export interface OnboardingFacts {
   hasEnvExample: boolean;
   /** File count backing the "generated from index of N files" header line. */
   fileCount: number;
+  /**
+   * `file_rank` percentile (0..1, higher = more central in the import graph)
+   * keyed by repo-relative path, for every path referenced by `rankedFiles`
+   * or `criticalPaths`. Grounds the `first_tasks` link `complexity` badge
+   * (server `ground.ts`) in a real import-graph signal instead of list
+   * position. Optional/absent path = not present in the index (`null`
+   * complexity). Not surfaced in the narration prompt itself.
+   */
+  filePercentiles?: Record<string, number>;
 }
 
 export interface BuildOnboardingPromptInput {

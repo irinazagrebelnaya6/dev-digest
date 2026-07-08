@@ -1,9 +1,10 @@
 /* helpers.ts — pure display-only helpers for the Onboarding Tour screen.
    NOT business logic: the server (`analyzer.ts`/`skeleton.ts`/`ground.ts`)
-   owns every fact/grounding rule (AC-4/AC-8/AC-15). These functions only
-   reshape the already-grounded `OnboardingSection.body` markdown into rows
-   for the "How to run locally" copy buttons, and derive a purely cosmetic
-   complexity badge for "First tasks" cards — neither invents a new fact. */
+   owns every fact/grounding rule (AC-4/AC-8/AC-15), INCLUDING the "First
+   tasks" complexity badge — it is grounded server-side in a real file_rank
+   percentile fact (`OnboardingLink.complexity`) and rendered as-is here.
+   These functions only reshape the already-grounded `OnboardingSection.body`
+   markdown into rows for the "How to run locally" copy buttons. */
 
 /** Splits a numbered-list markdown body ("1. foo\n2. bar") into item texts,
     stripping the leading "N. " marker. Falls back to non-empty lines when
@@ -36,12 +37,3 @@ export function stripMarkdown(text: string): string {
 }
 
 export type Complexity = "low" | "medium" | "high";
-
-/** Cosmetic-only complexity badge for a "First tasks" card, derived from the
-    card's position (earlier tasks are framed as easier entry points by the
-    server's own ordering) — never a claim grounded in repo facts. */
-export function complexityForIndex(index: number): Complexity {
-  if (index === 0) return "low";
-  if (index === 1) return "medium";
-  return "high";
-}

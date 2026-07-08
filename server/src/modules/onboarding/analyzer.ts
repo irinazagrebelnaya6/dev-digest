@@ -39,21 +39,28 @@ export async function gatherFacts(container: Container, repo: RepoRow): Promise<
 
   const topFiles = await container.repoIntel.getTopFilesByRank(repo.id, READING_PATH_SIZE);
 
-  const [fileRanks, criticalChains, reachableEndpoints, repoMap] = await Promise.all([
-    container.repoIntel.getFileRank(repo.id, topFiles),
+  const [criticalChains, reachableEndpoints, repoMap] = await Promise.all([
     container.repoIntel.getCriticalPaths(repo.id),
     container.repoIntel.getReachableEndpoints(repo.id, topFiles),
     container.repoIntel.getRepoMap(repo.id),
   ]);
 
+  const criticalPaths = buildCriticalPathFacts(criticalChains);
+  const endpoints = parseEndpoints(reachableEndpoints);
+
+  // Percentiles for the FULL set of paths the tour can reference (topFiles ∪
+  // criticalPaths) — not just topFiles — so `ground.ts` can grade the
+  // complexity of a first-task link that came from a critical-path chain hop
+  // beyond the top-N reading-path files (real import-graph signal, AC-2).
+  const percentilePaths = Array.from(new Set([...topFiles, ...criticalPaths.map((c) => c.path)]));
+  const fileRanks = await container.repoIntel.getFileRank(repo.id, percentilePaths);
   const percentileByPath = new Map(fileRanks.map((r) => [r.path, r.percentile]));
   const rankedFiles: OnboardingRankedFileFact[] = topFiles.map((path) => ({
     path,
     rank: percentileByPath.get(path) ?? 0,
   }));
-
-  const criticalPaths = buildCriticalPathFacts(criticalChains);
-  const endpoints = parseEndpoints(reachableEndpoints);
+  const filePercentiles: Record<string, number> = {};
+  for (const [path, percentile] of percentileByPath) filePercentiles[path] = percentile;
 
   const ref = { owner: repo.owner, name: repo.name };
   const packageJsonRaw = await readOptionalFile(container, ref, PACKAGE_JSON_PATH);
@@ -84,6 +91,7 @@ export async function gatherFacts(container: Container, repo: RepoRow): Promise<
     composeFile,
     hasEnvExample,
     fileCount: state.filesIndexed,
+    filePercentiles,
   };
 
   return { facts, degraded };

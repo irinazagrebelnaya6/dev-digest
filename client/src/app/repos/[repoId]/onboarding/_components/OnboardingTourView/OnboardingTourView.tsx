@@ -16,7 +16,7 @@ import { useActiveRepo } from "@/lib/repo-context";
 import { githubBlobUrl } from "@/lib/github-urls";
 import { useToast } from "@/lib/toast";
 import { OnboardingDiagram } from "./OnboardingDiagram";
-import { complexityForIndex, extractCommand, parseNumberedLines, stripMarkdown, type Complexity } from "./helpers";
+import { extractCommand, parseNumberedLines, stripMarkdown, type Complexity } from "./helpers";
 import { s } from "./styles";
 
 const SECTION_KINDS = ["architecture", "critical_paths", "run_local", "reading_path", "first_tasks"] as const;
@@ -268,17 +268,23 @@ function SectionContent({
   return (
     <div style={s.cardsGrid}>
       {section.links.map((link, i) => {
-        const complexity = complexityForIndex(i);
-        const colors = COMPLEXITY_COLOR[complexity];
+        // Grounded server-side (ground.ts) in a real file_rank percentile
+        // fact — `null`/absent means the path isn't present in the
+        // repo-intel graph, so the badge is hidden entirely rather than
+        // fabricating a value.
+        const complexity: Complexity | null | undefined = link.complexity;
+        const colors = complexity ? COMPLEXITY_COLOR[complexity] : null;
         return (
           <div key={`${link.path}-${i}`} style={s.taskCard}>
             <div style={s.taskTitle}>{link.label !== link.path ? stripMarkdown(link.label) : t("firstTasks.taskFallback", { n: i + 1 })}</div>
             <div className="mono" style={s.taskPath}>
               {link.path}
             </div>
-            <Badge color={colors.color} bg={colors.bg}>
-              {t(`firstTasks.complexity.${complexity}`)}
-            </Badge>
+            {colors && (
+              <Badge color={colors.color} bg={colors.bg}>
+                {t(`firstTasks.complexity.${complexity}`)}
+              </Badge>
+            )}
           </div>
         );
       })}

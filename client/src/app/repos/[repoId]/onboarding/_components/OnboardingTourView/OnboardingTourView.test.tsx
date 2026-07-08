@@ -72,9 +72,9 @@ function baseTour(): OnboardingResponse {
           body: "1. Read through `src/index.ts`.",
           diagram: null,
           links: [
-            { label: "Read through the entrypoint.", path: "src/index.ts" },
-            { label: "Read through the money helper.", path: "src/lib/money.ts" },
-            { label: "Read through the router.", path: "src/api/router.ts" },
+            { label: "Read through the entrypoint.", path: "src/index.ts", complexity: "low" },
+            { label: "Read through the money helper.", path: "src/lib/money.ts", complexity: "medium" },
+            { label: "Read through the router.", path: "src/api/router.ts", complexity: "high" },
           ],
         },
       ],
@@ -170,7 +170,7 @@ describe("OnboardingTourView", () => {
     expect(within(section).getByText("Core money-formatting helper.")).toBeInTheDocument();
   });
 
-  it("renders first_tasks as cards with title, path, and a complexity badge", () => {
+  it("renders first_tasks as cards with title, path, and a complexity badge sourced from link.complexity", () => {
     mockData = baseTour();
     renderView();
     const ft = document.getElementById("onboarding-first_tasks")!;
@@ -178,6 +178,19 @@ describe("OnboardingTourView", () => {
     expect(within(ft).getByText("Low")).toBeInTheDocument();
     expect(within(ft).getByText("Medium")).toBeInTheDocument();
     expect(within(ft).getByText("High")).toBeInTheDocument();
+  });
+
+  it("hides the complexity badge entirely when link.complexity is null (path not in the graph)", () => {
+    const tour = baseTour();
+    const firstTasks = tour.tour.sections.find((s) => s.kind === "first_tasks")!;
+    firstTasks.links = [{ label: "Read through the entrypoint.", path: "src/index.ts", complexity: null }];
+    mockData = tour;
+    renderView();
+    const ft = document.getElementById("onboarding-first_tasks")!;
+    expect(within(ft).getByText("Read through the entrypoint.")).toBeInTheDocument();
+    expect(within(ft).queryByText("Low")).not.toBeInTheDocument();
+    expect(within(ft).queryByText("Medium")).not.toBeInTheDocument();
+    expect(within(ft).queryByText("High")).not.toBeInTheDocument();
   });
 
   it("collapses a section on header click and re-expands on a second click", () => {

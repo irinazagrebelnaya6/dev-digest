@@ -36,6 +36,13 @@ const FACTS: OnboardingFacts = {
   composeFile: null,
   hasEnvExample: true,
   fileCount: 12,
+  // file_rank percentiles (real import-graph signal) — orders.ts is the
+  // highest-degree/most-central file, client.ts a low-degree leaf.
+  filePercentiles: {
+    'src/api/orders.ts': 0.99,
+    'src/lib/money.ts': 0.55,
+    'src/db/client.ts': 0.05,
+  },
 };
 
 const EMPTY_FACTS: OnboardingFacts = {
@@ -213,6 +220,56 @@ describe('groundOnboarding (pure generated + facts -> Onboarding)', () => {
 
     const readingPath = grounded.sections.find((s) => s.kind === 'reading_path')!;
     expect(readingPath.links.map((l) => l.path)).toEqual(FACTS.rankedFiles.map((f) => f.path));
+  });
+
+  it('grounds first_tasks link complexity from the file_rank percentile fact, not list position', () => {
+    const generated: Onboarding = {
+      sections: [
+        section('first_tasks', {
+          body: 'model first tasks',
+          links: [
+            // Highest-percentile file placed FIRST, lowest-percentile file
+            // placed SECOND — the opposite of what a position-based heuristic
+            // (0=low, 1=medium, 2=high) would produce, proving the badge is
+            // grounded in the fact, not the index.
+            { label: 'orders', path: 'src/api/orders.ts' },
+            { label: 'client', path: 'src/db/client.ts' },
+          ],
+        }),
+      ],
+    };
+    const grounded = groundOnboarding(generated, FACTS);
+    const firstTasks = grounded.sections.find((s) => s.kind === 'first_tasks')!;
+    const byPath = new Map(firstTasks.links.map((l) => [l.path, l.complexity]));
+    expect(byPath.get('src/api/orders.ts')).toBe('high');
+    expect(byPath.get('src/db/client.ts')).toBe('low');
+  });
+
+  it('first_tasks link complexity is null when the path has no percentile fact (not present in the graph)', () => {
+    const factsWithGap: OnboardingFacts = {
+      ...FACTS,
+      criticalPaths: [...FACTS.criticalPaths, { path: 'src/legacy/orphan.ts', reason: 'Orphan chain hop.' }],
+    };
+    const generated: Onboarding = {
+      sections: [
+        section('first_tasks', {
+          body: 'model first tasks',
+          links: [{ label: 'orphan', path: 'src/legacy/orphan.ts' }],
+        }),
+      ],
+    };
+    const grounded = groundOnboarding(generated, factsWithGap);
+    const firstTasks = grounded.sections.find((s) => s.kind === 'first_tasks')!;
+    expect(firstTasks.links).toEqual([{ label: 'orphan', path: 'src/legacy/orphan.ts', complexity: null }]);
+  });
+
+  it('grounds first_tasks complexity on the skeleton fallback too, when the model omits the section', () => {
+    const grounded = groundOnboarding({ sections: [] }, FACTS);
+    const firstTasks = grounded.sections.find((s) => s.kind === 'first_tasks')!;
+    expect(firstTasks.links.length).toBeGreaterThan(0);
+    for (const link of firstTasks.links) {
+      expect(['low', 'medium', 'high']).toContain(link.complexity);
+    }
   });
 
   it('AC-9: an "ignore previous instructions" fact value does not change the grounded contract shape', () => {

@@ -21,6 +21,10 @@ import { MAX_SECTION_LINKS, ONBOARDING_SECTION_ORDER } from './constants.js';
  *  - Every surviving `links` entry must reference a path present in the
  *    gathered facts (AC-15); an empty result after filtering falls back to
  *    the skeleton's own (fact-safe) links for that section.
+ *  - `first_tasks` links additionally get a `complexity` badge grounded in a
+ *    real import-graph signal — the file's `file_rank` percentile relative to
+ *    every other path referenced by the tour (terciles), NOT list position.
+ *    `null` when the path has no percentile fact (not present in the graph).
  */
 export function groundOnboarding(generated: Onboarding, facts: OnboardingFacts): Onboarding {
   const skeleton = buildSkeleton(facts);
@@ -35,17 +39,45 @@ export function groundOnboarding(generated: Onboarding, facts: OnboardingFacts):
     if (kind === 'run_local' || kind === 'reading_path') return fallback;
 
     const raw = generatedByKind.get(kind);
-    if (!raw) return fallback;
+    if (!raw) {
+      return kind === 'first_tasks' ? { ...fallback, links: withComplexity(fallback.links, facts) } : fallback;
+    }
 
     const body = typeof raw.body === 'string' && raw.body.trim().length > 0 ? raw.body : fallback.body;
     const filteredLinks = filterLinks(raw.links, allowedPaths);
     const links = filteredLinks.length > 0 ? filteredLinks.slice(0, MAX_SECTION_LINKS) : fallback.links;
     const diagram = kind === 'architecture' ? validDiagram(raw.diagram) : null;
+    const finalLinks = kind === 'first_tasks' ? withComplexity(links, facts) : links;
 
-    return { kind, title, body, diagram, links };
+    return { kind, title, body, diagram, links: finalLinks };
   });
 
   return { sections };
+}
+
+/**
+ * Grades each link's `complexity` from the file's `file_rank` percentile
+ * relative to the OTHER paths the tour references (terciles over
+ * `facts.filePercentiles`) — a real import-graph centrality signal, never the
+ * link's position in the list. `null` when the path has no percentile fact.
+ */
+function withComplexity(links: OnboardingLink[], facts: OnboardingFacts): OnboardingLink[] {
+  const percentiles = facts.filePercentiles ?? {};
+  const population = Object.values(percentiles).sort((a, b) => a - b);
+  return links.map((l) => ({ ...l, complexity: complexityBand(percentiles[l.path], population) }));
+}
+
+/** Terciles over `population` (ascending). `undefined` value -> not in the graph -> `null`. */
+function complexityBand(
+  value: number | undefined,
+  population: number[],
+): NonNullable<OnboardingLink['complexity']> | null {
+  if (value === undefined || population.length === 0) return null;
+  const t1 = population[Math.floor(population.length / 3)]!;
+  const t2 = population[Math.floor((2 * population.length) / 3)]!;
+  if (value >= t2) return 'high';
+  if (value >= t1) return 'medium';
+  return 'low';
 }
 
 /** The set of repo-relative paths the model is allowed to reference (AC-15). */

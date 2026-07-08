@@ -107,6 +107,11 @@ export type Conformance = z.infer<typeof Conformance>;
 export const OnboardingLink = z.object({
   label: z.string(),
   path: z.string(),
+  // Grounded, fact-derived complexity band for the "First tasks" card badge —
+  // computed server-side from a real import-graph signal (file_rank percentile
+  // relative to the other fact-referenced files), never from list position.
+  // `null`/absent when the path isn't present in the repo-intel graph.
+  complexity: z.enum(['low', 'medium', 'high']).nullish(),
 });
 export type OnboardingLink = z.infer<typeof OnboardingLink>;
 
