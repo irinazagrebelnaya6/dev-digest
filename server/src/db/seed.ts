@@ -2,6 +2,8 @@ import 'dotenv/config';
 import { createDb, type Db } from './client.js';
 import * as t from './schema.js';
 import { eq, and } from 'drizzle-orm';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
@@ -11,6 +13,13 @@ import {
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
 const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
+
+/**
+ * Committed demo "clone" for the Project Context screen — a `.devdigest/specs/`
+ * tree of sample specs so the feature renders like the design out of the box,
+ * without needing a real repo clone. Pointed to by `acme/payments-api`.
+ */
+const DEMO_CONTEXT_CLONE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/project-context');
 
 /**
  * Seed the starter's demo data. Idempotent: re-running upserts the default
@@ -84,10 +93,14 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         name: 'payments-api',
         fullName: 'acme/payments-api',
         defaultBranch: 'main',
-        clonePath: null,
+        clonePath: DEMO_CONTEXT_CLONE,
         createdBy: userId,
       })
       .returning();
+  }
+  // Backfill the demo clone path on re-seed (existing rows created before this).
+  if (repo && repo.clonePath !== DEMO_CONTEXT_CLONE) {
+    await db.update(t.repos).set({ clonePath: DEMO_CONTEXT_CLONE }).where(eq(t.repos.id, repo!.id));
   }
   const repoId = repo!.id;
 
