@@ -3,13 +3,19 @@ import type {
   FindingActionKind,
   PrIntentRecord,
   PrRisksRecord,
+  Provider,
+  Review,
   RunEventKind,
+  RunSummary,
   RunTrace,
   SmartDiff,
+  UnifiedDiff,
 } from '@devdigest/shared';
+import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import type { AgentRow } from '../../db/rows.js';
 import { ReviewRepository } from './repository.js';
+import { REVIEW_STRATEGY } from './constants.js';
 import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
@@ -23,6 +29,26 @@ import { composeSmartDiff } from './smart-diff.js';
 // './service.js' (these previously lived here; logic now in ./helpers.ts).
 export { findingRowToDto, reviewToDto } from './helpers.js';
 export type { ReviewDto, ReviewDtoFinding } from './helpers.js';
+
+/**
+ * One agent's result from {@link ReviewService.reviewDiff} — a local review of a
+ * raw diff (e.g. the pre-push CLI's working tree), NOT persisted to the DB.
+ * `review` is the grounded output of `reviewPullRequest`; `null` only when the
+ * agent errored (message in `error`), so the caller can report per-agent
+ * failures without aborting the others.
+ */
+export interface LocalAgentReview {
+  agent: { id: string; name: string; provider: string; model: string };
+  review: Review | null;
+  grounding: string;
+  droppedCount: number;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number | null;
+  /** Findings at/above the agent's `ci_fail_on` gate — the CLI's exit-code signal. */
+  blockers: number;
+  error?: string;
+}
 
 /**
  * Review service (the core). Orchestrates:
@@ -116,6 +142,96 @@ export class ReviewService {
   }
 
   /**
+   * Review a RAW diff (no PR row) with the enabled agents — or one named agent.
+   *
+   * This is the SAME engine and agents the PR review uses: it runs
+   * `reviewPullRequest` (from `@devdigest/reviewer-core`) per agent, exactly like
+   * `run-executor.runOneAgent`, including each agent's linked+enabled skills and
+   * the citation-grounding gate. It deliberately does NOT persist (there is no
+   * PR) and skips repo-intel enrichment (the working copy is not an indexed
+   * repo), so the prompt is the repo-intel-off baseline.
+   *
+   * Backs the pre-push CLI (`devdigest review --mode working`): the diff comes
+   * from `git diff` in the developer's working copy, so a review is available
+   * BEFORE a push/PR exists. Per-agent failures are isolated (captured in the
+   * result's `error`), mirroring the executor's isolation.
+   */
+  async reviewDiff(
+    workspaceId: string,
+    diff: UnifiedDiff,
+    opts: {
+      agentId?: string;
+      all?: boolean;
+      /** Task framing line (default: a generic working-tree review instruction). */
+      task?: string;
+      /** Progress sink forwarded to the engine (e.g. the CLI's spinner). */
+      onEvent?: (e: { kind: RunEventKind; msg: string; data?: unknown }) => void;
+    } = {},
+  ): Promise<LocalAgentReview[]> {
+    const targets = await this.resolveTargets(workspaceId, {
+      agentId: opts.agentId,
+      all: opts.all ?? !opts.agentId,
+    });
+    if (targets.length === 0) {
+      throw new AppError(
+        'no_enabled_agents',
+        'No enabled agents to run. Enable at least one agent, or pass an explicit agent id.',
+        400,
+      );
+    }
+
+    const task =
+      opts.task ??
+      'Review the local working-tree changes for bugs, correctness, security, and clarity.';
+
+    const results: LocalAgentReview[] = [];
+    for (const agent of targets) {
+      const meta = { id: agent.id, name: agent.name, provider: agent.provider, model: agent.model };
+      try {
+        const llm = await this.container.llm(agent.provider as Provider);
+        const linked = await this.agents.linkedSkills(agent.id);
+        const skills = linked.filter((l) => l.skill.enabled).map((l) => l.skill.body);
+
+        const outcome = await reviewPullRequest({
+          systemPrompt: agent.systemPrompt,
+          model: agent.model,
+          diff,
+          llm,
+          strategy: agent.strategy ?? REVIEW_STRATEGY,
+          ...(skills.length > 0 ? { skills } : {}),
+          task,
+          sessionId: `local-working-tree:${agent.name}`,
+          ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
+        });
+
+        results.push({
+          agent: meta,
+          review: outcome.review,
+          grounding: outcome.grounding,
+          droppedCount: outcome.dropped.length,
+          tokensIn: outcome.tokensIn,
+          tokensOut: outcome.tokensOut,
+          costUsd: outcome.costUsd,
+          blockers: countBlockers(outcome.review.findings, agent.ciFailOn),
+        });
+      } catch (err) {
+        results.push({
+          agent: meta,
+          review: null,
+          grounding: '0/0 passed',
+          droppedCount: 0,
+          tokensIn: 0,
+          tokensOut: 0,
+          costUsd: null,
+          blockers: 0,
+          error: (err as Error).message,
+        });
+      }
+    }
+    return results;
+  }
+
+  /**
    * Run a review for each target agent. Each agent gets its own runId
    * (= agent_runs.id) created up-front so the SSE route can be subscribed
    * before/while the run progresses. A partial failure in one agent does not
@@ -127,14 +243,57 @@ export class ReviewService {
     targets: AgentRow[],
     logger?: Logger,
   ): Promise<{ runs: { run_id: string; agent_id: string; agent_name: string }[]; reviews: ReviewDto[] }> {
+    const { pull, repo, runs, jobs } = await this.queueRuns(workspaceId, prId, targets);
+
+    // Fire-and-forget: the HTTP response returns now with the runIds; reviews
+    // are persisted as each agent finishes and the client refetches on SSE done.
+    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger).catch((err) => {
+      logger?.error({ prId, err: (err as Error).message }, 'review: background execution crashed');
+    });
+
+    return { runs, reviews: [] };
+  }
+
+  /**
+   * Blocking variant of {@link runReview}: queue the runs then AWAIT the
+   * executor before returning. Backs the MCP `run_agent_on_pr` tool, whose
+   * design is "a completed result, not an operation" — the caller gets the
+   * finished run handles in one round-trip and reads the findings with
+   * `reviewsForRun`/`getRun`. Per-agent failures are still isolated inside the
+   * executor (a failed agent leaves a `failed` run row; the others complete),
+   * so this resolves once EVERY queued run has settled (done/failed/cancelled).
+   */
+  async runReviewAndWait(
+    workspaceId: string,
+    prId: string,
+    targets: AgentRow[],
+    logger?: Logger,
+  ): Promise<{ runs: { run_id: string; agent_id: string; agent_name: string }[] }> {
+    const { pull, repo, runs, jobs } = await this.queueRuns(workspaceId, prId, targets);
+    await this.executor.executeRuns(workspaceId, pull, repo, jobs, logger);
+    return { runs };
+  }
+
+  /**
+   * Shared setup for the fire-and-forget and blocking run paths: resolve the
+   * pull + repo and create an `agent_runs` row per target up front so a runId
+   * is available IMMEDIATELY. Returns the run handles + the executor jobs.
+   */
+  private async queueRuns(
+    workspaceId: string,
+    prId: string,
+    targets: AgentRow[],
+  ): Promise<{
+    pull: NonNullable<Awaited<ReturnType<ReviewRepository['getPull']>>>;
+    repo: NonNullable<Awaited<ReturnType<ReviewRepository['getRepo']>>>;
+    runs: { run_id: string; agent_id: string; agent_name: string }[];
+    jobs: { agent: AgentRow; runId: string }[];
+  }> {
     const pull = await this.repo.getPull(workspaceId, prId);
     if (!pull) throw new NotFoundError('Pull request not found');
     const repo = await this.repo.getRepo(pull.repoId);
     if (!repo) throw new NotFoundError('Repo not found');
 
-    // Create the agent_run rows up front so a runId is available IMMEDIATELY —
-    // the client persists these in global state and subscribes to the SSE
-    // stream. The actual (slow) review runs in the background below.
     const runs: { run_id: string; agent_id: string; agent_name: string }[] = [];
     const jobs: { agent: AgentRow; runId: string }[] = [];
     for (const agent of targets) {
@@ -148,14 +307,7 @@ export class ReviewService {
       runs.push({ run_id: runId, agent_id: agent.id, agent_name: agent.name });
       jobs.push({ agent, runId });
     }
-
-    // Fire-and-forget: the HTTP response returns now with the runIds; reviews
-    // are persisted as each agent finishes and the client refetches on SSE done.
-    void this.executor.executeRuns(workspaceId, pull, repo, jobs, logger).catch((err) => {
-      logger?.error({ prId, err: (err as Error).message }, 'review: background execution crashed');
-    });
-
-    return { runs, reviews: [] };
+    return { pull, repo, runs, jobs };
   }
 
   private publish(runId: string, kind: RunEventKind, msg: string, data?: unknown) {
@@ -196,6 +348,73 @@ export class ReviewService {
 
   async getRunTrace(runId: string): Promise<RunTrace | undefined> {
     return this.repo.getRunTrace(runId);
+  }
+
+  /**
+   * A single run by id (workspace-scoped) as a `RunSummary`, or `undefined`
+   * for an unknown/foreign run. Backs the MCP `get_findings` tool's status
+   * derivation on the `run_id` path (where no PR is known up front, so
+   * `listRuns` can't be used). No cost enrichment — MCP output omits cost.
+   */
+  async getRun(workspaceId: string, runId: string): Promise<RunSummary | undefined> {
+    return this.repo.getRunById(workspaceId, runId);
+  }
+
+  /**
+   * Reviews linked to a specific agent run (newest first) — mirrors
+   * `reviewsForPull`'s DTO shape + agent-name enrichment, but keyed by
+   * `run_id` instead of `pr_id`. Backs the MCP `get_findings` tool's
+   * `run_id` lookup path.
+   */
+  async reviewsForRun(workspaceId: string, runId: string): Promise<ReviewDto[]> {
+    const rows = await this.repo.reviewsByRunId(workspaceId, runId);
+    const names = new Map<string, string>();
+    for (const { review } of rows) {
+      if (review.agentId && !names.has(review.agentId)) {
+        const a = await this.agents.getById(workspaceId, review.agentId);
+        if (a) names.set(review.agentId, a.name);
+      }
+    }
+    return rows.map(({ review, findings }) =>
+      reviewToDto(review, findings, review.agentId ? names.get(review.agentId) : null),
+    );
+  }
+
+  // ===========================================================================
+  // Identifier resolution — human-friendly `"owner/name"` repo + PR `number`
+  // to internal UUIDs. Lives here (application layer) so the MCP adapter (and
+  // any other inbound adapter) never has to touch a repository directly.
+  // Error messages follow the existing `NotFoundError` convention in this file
+  // ("Repo not found" / "Pull request not found") — MCP-layer callers
+  // (`mcp/resolvers.ts`) know from calling context which lookup failed and map
+  // that to the stable `REPO_NOT_FOUND` / `PR_NOT_FOUND` machine codes.
+  // ===========================================================================
+
+  /** Resolve a repo by its `"owner/name"` full name, scoped to the workspace. */
+  async resolveRepo(workspaceId: string, fullName: string): Promise<{ repoId: string }> {
+    const repo = await this.repo.getRepoByFullName(workspaceId, fullName);
+    if (!repo) throw new NotFoundError(`Repo not found: ${fullName}`);
+    return { repoId: repo.id };
+  }
+
+  /** Resolve a PR by `"owner/name"` + PR `number`, scoped to the workspace. */
+  async resolvePull(
+    workspaceId: string,
+    fullName: string,
+    number: number,
+  ): Promise<{ repoId: string; prId: string }> {
+    const { repoId } = await this.resolveRepo(workspaceId, fullName);
+    const pull = await this.repo.getPullByNumber(workspaceId, repoId, number);
+    if (!pull) throw new NotFoundError(`Pull request not found: ${fullName}#${number}`);
+    return { repoId, prId: pull.id };
+  }
+
+  /** Minimal repo listing for the MCP conventions resource's `resources/list`. */
+  async listRepos(
+    workspaceId: string,
+  ): Promise<{ repoId: string; owner: string; name: string; fullName: string }[]> {
+    const rows = await this.repo.listReposForWorkspace(workspaceId);
+    return rows.map((r) => ({ repoId: r.id, owner: r.owner, name: r.name, fullName: r.fullName }));
   }
 
   // ===========================================================================

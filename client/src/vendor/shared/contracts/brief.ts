@@ -36,10 +36,34 @@ export const DownstreamImpact = z.object({
 });
 export type DownstreamImpact = z.infer<typeof DownstreamImpact>;
 
+/** A prior PR that touched one or more of the same files as this PR. */
+export const PriorPr = z.object({
+  number: z.number().int(),
+  title: z.string(),
+  author: z.string(),
+  overlap: z.array(z.string()),
+  // PR open date (YYYY-MM-DD) and description body — power the history timeline
+  // UI (avatar · date, then a note line). Nullish: older rows/fixtures omit them.
+  date: z.string().nullish(),
+  note: z.string().nullish(),
+});
+export type PriorPr = z.infer<typeof PriorPr>;
+
 export const BlastRadius = z.object({
   changed_symbols: z.array(ChangedSymbol),
   downstream: z.array(DownstreamImpact),
+  // Prior PRs in this repo that touched any of the changed files (history).
+  prior_prs: z.array(PriorPr),
+  // HTTP routes reachable from the changed files by walking the import graph up
+  // to 2 levels deep (dependents-of-dependents). PR-level union; distinct from
+  // each downstream symbol's direct `endpoints_affected`.
+  reachable_endpoints: z.array(z.string()),
   summary: z.string(),
+  // Index health for the view: true when the repo-intel index is missing /
+  // unusable (degraded/ripgrep fallback), so the tab can show a badge instead
+  // of an empty screen. `reason` mirrors repo-intel's DegradedReason.
+  degraded: z.boolean(),
+  reason: z.string().nullish(),
 });
 export type BlastRadius = z.infer<typeof BlastRadius>;
 

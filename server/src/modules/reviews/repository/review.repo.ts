@@ -73,6 +73,36 @@ export async function reviewsForPull(
   }));
 }
 
+/**
+ * Reviews linked to an agent run (newest first), each with its findings.
+ * There is NO FK from `reviews` to `agent_runs` — the link is the shared
+ * `reviews.run_id` value written when the run persists its outcome. Backs
+ * the MCP `get_findings` tool's `run_id` lookup path.
+ *
+ * Workspace-scoped: unlike `reviewsForPull(prId)` (safe unscoped because its
+ * `prId` is always obtained from an already workspace-checked `getPull()`
+ * call first), `runId` here arrives directly from an untrusted MCP caller
+ * with no prior lookup, so the tenancy guard must be applied in this query.
+ */
+export async function reviewsByRunId(
+  db: Db,
+  workspaceId: string,
+  runId: string,
+): Promise<{ review: ReviewRow; findings: FindingRow[] }[]> {
+  const reviews = await db
+    .select()
+    .from(t.reviews)
+    .where(and(eq(t.reviews.workspaceId, workspaceId), eq(t.reviews.runId, runId)))
+    .orderBy(desc(t.reviews.createdAt));
+  if (reviews.length === 0) return [];
+  const ids = reviews.map((r) => r.id);
+  const findings = await db.select().from(t.findings).where(inArray(t.findings.reviewId, ids));
+  return reviews.map((review) => ({
+    review,
+    findings: findings.filter((f) => f.reviewId === review.id),
+  }));
+}
+
 export async function getReview(db: Db, reviewId: string): Promise<ReviewRow | undefined> {
   const [row] = await db.select().from(t.reviews).where(eq(t.reviews.id, reviewId));
   return row;

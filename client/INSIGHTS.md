@@ -2,6 +2,8 @@
 
 ## What Works
 
+[2026-07-06] Clickable `file:line` that opens the exact line of code = `<MonoLink href={githubBlobUrl(repoFullName, headSha, file, line)}>{file}:{line}</MonoLink>` — the `FindingCard.tsx:46,68` pattern. Reuse it for any file:line ref (Blast callers do). BEWARE: `RiskAreasCard.tsx` renders `<MonoLink>` with NO `href` → plain non-clickable text; copy FindingCard, not RiskAreas, when you want the ref clickable. Works for any file (even outside the PR diff), unlike the diff scroll-to-line anchor, but the linked repo must be a REAL GitHub repo or the blob URL 404s.
+
 [2026-07-04] Scroll-to-line in the diff: `CodeLine` renders `data-line={ln.newNo}` on every row and `FileCard` wraps its body in `data-pr-file={file.path}`. Jump to a finding = `document.querySelector('[data-pr-file="${path}"] [data-line="${n}"]')?.scrollIntoView({ block: "center" })` after ensuring the file is expanded. Before this there was NO line anchor anywhere in the diff-viewer. Both attributes are additive and safe for the existing `DiffViewer`/e2e paths.
 
 [2026-07-04] `IntentCard` (PR Overview tab) reuses existing primitives with zero new components: `Card` + `Markdown` from `@devdigest/ui`, the Overview tab's `SectionLabel icon="Target"` pattern for the header, `Icon.CheckCircle` with the `--ok` green token for IN SCOPE, muted `Icon.X` for OUT OF SCOPE. It fetches its own data via `useIntent(prId)` so `OverviewTab` only passes `prId` — keeps prop-drilling shallow.
@@ -31,6 +33,12 @@
 [2026-06-28] Do NOT use `queryKeys.providerModels(undefined)` for prefix invalidation — it produces `["provider-models", undefined]` which only matches queries where provider IS undefined, not all provider-model queries. For prefix invalidation keep the raw array: `qc.invalidateQueries({ queryKey: ["provider-models"] })`. Add a comment so the next reader doesn't "fix" it with the factory.
 
 ## Codebase Patterns
+
+[2026-07-07] `Avatar` primitive IS exported from `@devdigest/ui` (`vendor/ui/primitives/Avatar.tsx` → index) — takes `{ name, size?, color? }`, derives initials + a hue from `name.charCodeAt(0) % 6`. Use it for any author chip (Blast prior-PRs timeline); no need to hand-roll initials/colors. For a short PR "note" line with inline `code`, render `<Markdown>` (same primitive the Blast summary uses) — backticked paths like `` `src/lib/redis.ts` `` render correctly.
+
+[2026-07-06] Adding a tab to the PR detail page = exactly 2 edits: (1) a `{ key, label, icon }` entry in the `tabs` array of `PrDetailHeader.tsx` (~line 115), and (2) a `{tab === "<key>" && <XTab .../>}` block in `pulls/[number]/page.tsx` next to the others. Tab state lives in the `?tab` query param (default `overview`). NOTE: the tab `label` strings there are hardcoded English (not `useTranslations`) — matching that convention is correct; only the tab BODY content is i18n'd. `repoFullName` and `pr.head_sha` are already in scope in page.tsx for github deep-links.
+
+[2026-07-06] Self-fetching tab cards take only `prId` (+ `repoFullName`/`headSha` for links) and call their own hook — `RiskAreasCard`/`IntentCard`/`BlastTab` all do this to keep prop-drilling shallow. A `useX(prId, flag)` hook that folds an opt-in flag into the query key (e.g. `useBlast(prId, summary)` → key `[...prBlast(prId), summary]`) makes toggling the flag trigger a fresh fetch automatically — used for Blast's opt-in one-call summary.
 
 [2026-07-04] `FileCard` owns its expand/collapse state internally (`useState(startExpanded)`), seeded ONCE at mount. It now takes an optional `defaultOpen?: boolean` — when omitted it keeps the size heuristic (auto-open when additions+deletions ≤ `AUTO_EXPAND_MAX_LINES`=200). A PARENT cannot force it open after mount by changing `defaultOpen` alone — SmartDiffViewer force-expands via an `openOverrides` map that re-seeds the mounted state (key-remount). Remember this when driving FileCard open-state from outside (e.g. click-to-line).
 
@@ -78,9 +86,15 @@
 
 ## Recurring Errors & Fixes
 
+[2026-07-06] In this environment `node node_modules/.bin/tsc` fails with `SyntaxError: missing ) after argument list` — `.bin/tsc` is a shell wrapper, not JS, and the vitest `.bin` symlink is not +x (`Permission denied`). Invoke the real entry points directly: `node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json` and `node node_modules/vitest/dist/cli.js run <files>`.
+
 [2026-06-26] Adding a non-optional field to a shared Zod schema used in test fixtures causes TS error: `Type 'undefined' is not assignable to type 'number | null'`. Fix: use `.nullish()` instead of `.nullable()` for fields computed server-side that old fixtures won't have.
 
 ## Session Notes
+
+[2026-07-07] Blast Radius refinements. (1) Tree view now filters out changed symbols with 0 callers (`BlastRadiusCard.tsx:131` — `.filter(callers.length > 0)`), matching `BlastGraph.tsx:35` which already did. Counts row still reports total changed symbols. (2) Rebuilt the "Prior PRs touching these files" section as a timeline: continuous vertical rail (`priorList` borderLeft + absolute `priorDot` per item), `#NNN` MonoLink + bold title, `Avatar`+author·date, note via `<Markdown>`. New `PriorPr.date`/`note` (nullish) come from server `openedAt`/`body`; falls back to `overlap.join(", ")` when note is absent. Test expands the collapsed section (`fireEvent.click` the header) before asserting. 4 BlastRadiusCard tests green.
+
+[2026-07-06] Implemented Blast Radius UI (L04). New `_components/BlastTab/` (with `index.ts`) as a top-level PR tab (`{key:"blast",label:"Blast",icon:"Zap"}` in PrDetailHeader + conditional in page.tsx). `useBlast(prId, summary)` in `lib/hooks/blast.ts` (+ `prBlast` query key, barrel export). Three-level layout: changed symbols → per-symbol callers (each a `MonoLink href={githubBlobUrl(...)}` file:line link) → affected endpoints; plus a PR-level "reachable endpoints" section, an `EmptyState`, and a degraded banner from `response.degraded`. Optional "Explain this map" button flips the summary flag (one cheap LLM call, off by default). Added a `blast` i18n sub-namespace to prReview.json. Contract `BlastRadius` was extended server-side (reachable_endpoints + degraded/reason) and re-copied to the client vendor tree (kept byte-identical). 38 client tests + BlastTab.test.tsx green.
 
 [2026-07-04] Implemented Smart Diff UI. New `SmartDiffViewer` (`_components/SmartDiffViewer/`) on the Files-changed tab: renders `useSmartDiff(prId)` groups in server order, boilerplate collapsed / core expanded (via `defaultOpenForRole`), a Smart/Original `Chip` toggle (Original falls back to the plain `<DiffViewer>`), and a clickable "N findings" `Chip` that force-expands the file and scrolls to the first `finding_lines` value. Added `useSmartDiff` (hooks/smart-diff.ts) + `prSmartDiff` query key. The `smartDiff` i18n sub-namespace already existed in prReview.json — added subtitles/toggle/badge keys. Loading/error/no-data all fall back to `<DiffViewer>` so it works before any review has run. `pseudocode_summary` never rendered (server sends null — no LLM). 30 client tests green.
 
@@ -115,3 +129,5 @@
 [2026-06-26] Implemented PR list FINDINGS column + accordion header severity badges. PR list: `PRRow.tsx` renders `SeverityBadge compact` per non-zero severity from `pr.findings_breakdown`. Adding a column requires 4 edits: `GRID`, `COLUMN_KEYS`, cell in `PRRow.tsx`, translation in `messages/en/prReview.json`. Accordion header: replaced plain-text counts with `SeverityBadge compact` icons directly in `ReviewRunAccordion.tsx` — no helper needed since counts are simple filter expressions.
 
 ## Open Questions
+
+[2026-07-07] The Blast tree's 0-caller filter (`BlastRadiusCard.tsx:131`) also hides a changed symbol that has 0 callers but DOES directly affect `endpoints_affected`/`crons_affected` — surfaced by running the pre-push CLI reviewer on this very diff. Current behavior matches the literal ask ("don't show if 0 callers"). If that's too aggressive, widen the predicate to keep symbols with any of callers/endpoints/crons: `d?.callers.length || d?.endpoints_affected.length || d?.crons_affected.length`.

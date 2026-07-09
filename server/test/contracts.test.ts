@@ -80,7 +80,10 @@ describe('AI contracts parse fixtures', () => {
             crons_affected: ['c'],
           },
         ],
+        prior_prs: [{ number: 480, title: 'earlier change', author: 'dev', overlap: ['a.ts'] }],
+        reachable_endpoints: ['GET /x'],
         summary: 's',
+        degraded: false,
       }),
     ).not.toThrow();
     expect(() =>

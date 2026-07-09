@@ -169,4 +169,11 @@ export interface RepoIntel {
     opts?: { exclude?: string[] },
   ): Promise<string[]>;
   getCriticalPaths(repoId: string): Promise<string[][]>;
+  /**
+   * HTTP endpoints reachable from `changedFiles` by walking the import graph
+   * REVERSE (who imports these files) up to `depth` levels, then unioning
+   * `file_facts.endpoints` of every file on the way. Pure index read (used by
+   * Blast Radius, L04). Returns `[]` when the flag is off / index is empty.
+   */
+  getReachableEndpoints(repoId: string, changedFiles: string[], depth?: number): Promise<string[]>;
 }

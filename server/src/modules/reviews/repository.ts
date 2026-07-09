@@ -39,6 +39,38 @@ export class ReviewRepository {
     return pullRepo.getPrFiles(this.db, prId);
   }
 
+  /** Prior PRs in the repo that touched any of `paths` (Blast Radius history). */
+  priorPullsTouchingPaths(
+    workspaceId: string,
+    repoId: string,
+    excludePrId: string,
+    paths: string[],
+  ): Promise<import('@devdigest/shared').PriorPr[]> {
+    return pullRepo.priorPullsTouchingPaths(this.db, workspaceId, repoId, excludePrId, paths);
+  }
+
+  /** Resolve a repo by `"owner/name"`, scoped to the workspace (MCP `repo` input). */
+  getRepoByFullName(
+    workspaceId: string,
+    fullName: string,
+  ): Promise<typeof t.repos.$inferSelect | undefined> {
+    return pullRepo.getRepoByFullName(this.db, workspaceId, fullName);
+  }
+
+  /** Resolve a PR by its number within a repo, scoped to the workspace (MCP `pr` input). */
+  getPullByNumber(
+    workspaceId: string,
+    repoId: string,
+    number: number,
+  ): Promise<PullRow | undefined> {
+    return pullRepo.getPullByNumber(this.db, workspaceId, repoId, number);
+  }
+
+  /** All repos in a workspace (MCP conventions resource `resources/list`). */
+  listReposForWorkspace(workspaceId: string): Promise<(typeof t.repos.$inferSelect)[]> {
+    return pullRepo.listReposForWorkspace(this.db, workspaceId);
+  }
+
   // ---- reviews + findings -------------------------------------------------
 
   insertReview(values: {
@@ -64,6 +96,16 @@ export class ReviewRepository {
     return reviewRepo.reviewsForPull(this.db, prId);
   }
 
+  /** Reviews linked to an agent run (newest first), each with its findings.
+   *  There is NO FK from `reviews` to `agent_runs`; the link is `reviews.runId`.
+   *  Workspace-scoped (see `review.repo.ts#reviewsByRunId` for why). */
+  reviewsByRunId(
+    workspaceId: string,
+    runId: string,
+  ): Promise<{ review: ReviewRow; findings: FindingRow[] }[]> {
+    return reviewRepo.reviewsByRunId(this.db, workspaceId, runId);
+  }
+
   getReview(reviewId: string): Promise<ReviewRow | undefined> {
     return reviewRepo.getReview(this.db, reviewId);
   }
@@ -80,6 +122,11 @@ export class ReviewRepository {
   /** All runs for a PR (any status), newest first — the PR run history. */
   listRunsForPull(workspaceId: string, prId: string): Promise<RunSummary[]> {
     return runRepo.listRunsForPull(this.db, workspaceId, prId);
+  }
+
+  /** A single run by id, workspace-scoped (MCP `get_findings` status derivation). */
+  getRunById(workspaceId: string, runId: string): Promise<RunSummary | undefined> {
+    return runRepo.getRunById(this.db, workspaceId, runId);
   }
 
   /** Delete one agent run (+ its trace via FK cascade). Workspace-scoped. */

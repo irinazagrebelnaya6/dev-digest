@@ -116,12 +116,87 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       })
       .returning();
 
-    // pr_files (subset)
+    // pr_files (subset). Each row carries a real unified-diff `patch` (the `@@`
+    // hunks only — diffFromPrFiles prepends the git/---/+++ headers). Without a
+    // patch, loadDiff falls back to an EMPTY diff, the reviewer sees nothing,
+    // and every live run returns 0 findings / score 100. The config + users
+    // patches deliberately contain the two seeded issues (hardcoded Stripe key,
+    // N+1 loop) so a live security/perf review can ground findings on them.
+    const ratelimitPatch = [
+      '@@ -0,0 +1,18 @@',
+      "+import type { Request, Response, NextFunction } from 'express';",
+      '+',
+      '+// In-memory token-bucket limiter for unauthenticated public routes.',
+      '+const buckets = new Map<string, { tokens: number; updated: number }>();',
+      '+const CAPACITY = 60;',
+      '+const REFILL_PER_SEC = 1;',
+      '+',
+      '+export function rateLimit(req: Request, res: Response, next: NextFunction) {',
+      "+  const key = req.ip ?? 'anon';",
+      '+  const now = Date.now();',
+      '+  const b = buckets.get(key) ?? { tokens: CAPACITY, updated: now };',
+      '+  b.tokens = Math.min(CAPACITY, b.tokens + ((now - b.updated) / 1000) * REFILL_PER_SEC);',
+      '+  b.updated = now;',
+      "+  if (b.tokens < 1) return res.status(429).json({ error: 'rate_limited' });",
+      '+  b.tokens -= 1;',
+      '+  buckets.set(key, b);',
+      '+  next();',
+      '+}',
+    ].join('\n');
+
+    const webhooksPatch = [
+      '@@ -1,8 +1,10 @@',
+      " import { Router } from 'express';",
+      "+import { rateLimit } from '../../middleware/ratelimit';",
+      ' ',
+      ' export const webhooks = Router();',
+      ' ',
+      "-webhooks.post('/stripe', async (req, res) => {",
+      "+webhooks.post('/stripe', rateLimit, async (req, res) => {",
+      '   const event = req.body;',
+      '+  // TODO: verify Stripe signature before trusting the payload',
+      '   res.sendStatus(200);',
+      ' });',
+    ].join('\n');
+
+    const configPatch = [
+      "@@ -6,4 +6,7 @@ import { z } from 'zod';",
+      ' export const config = {',
+      '   port: Number(process.env.PORT ?? 3000),',
+      '   dbUrl: process.env.DATABASE_URL!,',
+      '+  // Stripe billing integration (added for webhook signature checks)',
+      // Fake demo secret: keeps the `sk_live_` prefix so the Security Reviewer
+      // still grounds a "hardcoded key" finding, but the underscores break the
+      // continuous alnum run so it does NOT match GitHub's Stripe-key push
+      // protection (this is seeded fixture data, never a real credential).
+      "+  stripeSecretKey: 'sk_live_EXAMPLE_do_not_use_fake_demo_key',",
+      '+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,',
+      ' } as const;',
+    ].join('\n');
+
+    const usersPatch = [
+      '@@ -42,5 +42,13 @@ export async function listUsers(req: Request, res: Response) {',
+      '   const q = req.query.q as string | undefined;',
+      "   const users = await db.query('SELECT id, email FROM users LIMIT 100');",
+      ' ',
+      '-  return res.json(users);',
+      '+  // Enrich each user with their latest order (added alongside the limiter)',
+      '+  const enriched = [];',
+      '+  for (const u of users) {',
+      "+    const orders = await db.query('SELECT * FROM orders WHERE user_id = $1', [u.id]);",
+      "+    const profile = await db.query('SELECT * FROM profiles WHERE user_id = $1', [u.id]);",
+      '+    enriched.push({ ...u, orders, latestProfile: profile[0] });',
+      '+  }',
+      '+',
+      '+  return res.json(enriched);',
+      ' }',
+    ].join('\n');
+
     await db.insert(t.prFiles).values([
-      { prId: pr!.id, path: 'src/middleware/ratelimit.ts', additions: 84, deletions: 0 },
-      { prId: pr!.id, path: 'src/api/public/webhooks.ts', additions: 31, deletions: 6 },
-      { prId: pr!.id, path: 'src/config.ts', additions: 4, deletions: 0 },
-      { prId: pr!.id, path: 'src/api/users.ts', additions: 7, deletions: 2 },
+      { prId: pr!.id, path: 'src/middleware/ratelimit.ts', additions: 18, deletions: 0, patch: ratelimitPatch },
+      { prId: pr!.id, path: 'src/api/public/webhooks.ts', additions: 3, deletions: 1, patch: webhooksPatch },
+      { prId: pr!.id, path: 'src/config.ts', additions: 3, deletions: 0, patch: configPatch },
+      { prId: pr!.id, path: 'src/api/users.ts', additions: 9, deletions: 1, patch: usersPatch },
     ]);
 
     // pr_commits
@@ -173,6 +248,75 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         confidence: 0.86,
       },
     ]);
+  }
+
+  // ---- prior PRs touching #482's files (Blast Radius "Prior PRs" history) ----
+  // Each shares at least one path with #482 (src/api/public/webhooks.ts,
+  // src/config.ts) so `priorPullsTouchingPaths` returns them. `body` becomes the
+  // note line and `openedAt` the date in the timeline UI. Idempotent by number.
+  const priorPrs: Array<{
+    pr: typeof t.pullRequests.$inferInsert;
+    files: string[];
+  }> = [
+    {
+      pr: {
+        workspaceId,
+        repoId,
+        number: 401,
+        title: 'Introduce public API namespace',
+        author: 'deepak.r',
+        branch: 'feat/public-api-namespace',
+        base: 'main',
+        headSha: 'p401aa11bb22',
+        status: 'merged',
+        openedAt: new Date('2026-03-18T00:00:00Z'),
+        body: 'Original `/api/public/*` split-out. Established the router this PR hooks into.',
+      },
+      files: ['src/api/public/webhooks.ts'],
+    },
+    {
+      pr: {
+        workspaceId,
+        repoId,
+        number: 356,
+        title: 'Add ioredis client for session cache',
+        author: 'marisa.koch',
+        branch: 'feat/ioredis-session-cache',
+        base: 'main',
+        headSha: 'p356cc33dd44',
+        status: 'merged',
+        openedAt: new Date('2026-02-02T00:00:00Z'),
+        body: 'Redis client already lives here — reuse `src/lib/redis.ts` instead of constructing a second connection.',
+      },
+      files: ['src/config.ts'],
+    },
+    {
+      pr: {
+        workspaceId,
+        repoId,
+        number: 288,
+        title: 'Webhook forwarding for connect accounts',
+        author: 'tomek.w',
+        branch: 'feat/webhook-forwarding',
+        base: 'main',
+        headSha: 'p288ee55ff66',
+        status: 'merged',
+        openedAt: new Date('2025-12-11T00:00:00Z'),
+        body: 'Last change to webhooks. SSRF concern was raised in review then but deferred — relevant to finding f2.',
+      },
+      files: ['src/api/public/webhooks.ts'],
+    },
+  ];
+  for (const { pr: priorPr, files } of priorPrs) {
+    const [existing] = await db
+      .select()
+      .from(t.pullRequests)
+      .where(and(eq(t.pullRequests.repoId, repoId), eq(t.pullRequests.number, priorPr.number!)));
+    if (existing) continue;
+    const [row] = await db.insert(t.pullRequests).values(priorPr).returning();
+    await db
+      .insert(t.prFiles)
+      .values(files.map((path) => ({ prId: row!.id, path, additions: 1, deletions: 0 })));
   }
 
   // ---- built-in agents (the three starter presets) ----
