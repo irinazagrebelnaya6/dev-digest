@@ -1,6 +1,6 @@
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
+import type { Finding, Intent, Risk, RunSummary, RunTrace } from '@devdigest/shared';
 
 /**
  * A2 — review data-access. The ONLY layer touching the DB for the review
@@ -133,6 +133,18 @@ export class ReviewRepository {
 
   getIntent(prId: string): Promise<Intent | undefined> {
     return pullRepo.getIntent(this.db, prId);
+  }
+
+  // ---- pr_brief (generic partial-brief blob; risks is the first consumer) --
+
+  /** Shallow-merge `brief` (e.g. `{ risks: Risk[] }`) into `pr_brief.json`. */
+  upsertBrief(prId: string, brief: unknown): Promise<void> {
+    return pullRepo.upsertBrief(this.db, prId, brief as Record<string, unknown>);
+  }
+
+  /** The stored partial brief blob for a PR, or `undefined` when none yet. */
+  getBrief(prId: string): Promise<{ risks?: Risk[] } | undefined> {
+    return pullRepo.getBrief(this.db, prId);
   }
 
   // ---- observability: agent_runs + run_traces ----------------------------

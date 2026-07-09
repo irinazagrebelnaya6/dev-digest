@@ -19,6 +19,26 @@ export {
   type AssembledPrompt,
 } from './prompt.js';
 
+// Intent Layer — classifier prompt (title + body + linked issue + header-only
+// file list → { intent, in_scope[], out_of_scope[] }). Pure; caller resolves
+// the model + persists the result.
+export {
+  buildIntentPrompt,
+  formatFileList,
+  type BuildIntentPromptInput,
+  type IntentDiffFile,
+} from './intent-prompt.js';
+
+// Risk Areas — merge-risk assessment prompt (title + body + diff WITH hunk
+// bodies → { risks: Risk[] }). Pure; caller resolves the (capable) model and
+// persists the result. `RISK_KINDS` is the controlled vocabulary shared with
+// the server/UI so `Risk.kind` maps to an icon deterministically.
+export {
+  buildRisksPrompt,
+  RISK_KINDS,
+  type BuildRisksPromptInput,
+} from './risks-prompt.js';
+
 // Citation grounding — the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
 

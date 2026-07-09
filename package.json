@@ -1,0 +1,7 @@
+{
+  "name": "devdigest",
+  "private": true,
+  "scripts": {
+    "verify:l03": "bash scripts/verify-l03.sh"
+  }
+}

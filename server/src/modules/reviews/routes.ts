@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { RunRequest } from '@devdigest/shared';
-import type { RunEvent } from '@devdigest/shared';
+import type { RunEvent, SmartDiff } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
@@ -14,6 +14,11 @@ import { ReviewService } from './service.js';
  *   GET    /runs/:id/trace                             → the single-document RunTrace
  *   GET    /pulls/:id/reviews                          → persisted reviews + findings for a PR
  *   POST   /findings/:id/(accept|dismiss)              → finding actions
+ *   POST   /pulls/:id/intent                            → recompute + persist the PR's Intent (sync)
+ *   GET    /pulls/:id/intent                            → the stored Intent for a PR, or null
+ *   POST   /pulls/:id/risks                             → recompute + persist the PR's Risk Areas (sync)
+ *   GET    /pulls/:id/risks                             → the stored Risk Areas for a PR, or null
+ *   GET    /pulls/:id/smart-diff                        → risk-ordered diff layout (NO LLM call)
  */
 const FINDING_ACTIONS = ['accept', 'dismiss'] as const;
 export default async function reviewsRoutes(appBase: FastifyInstance) {
@@ -41,6 +46,40 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
       req.log,
     );
     return { pr_id: req.params.id, runs, reviews };
+  });
+
+  // ---- Intent Layer: synchronous recompute (the "Recompute" button) --------
+  // Cheap classifier call, but still an LLM round-trip — rate-limited like review.
+  app.post(
+    '/pulls/:id/intent',
+    { schema: { params: IdParams }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (req) => {
+      const { workspaceId } = await getContext(container, req);
+      return service.computeIntentForPull(workspaceId, req.params.id);
+    },
+  );
+
+  // ---- Intent Layer: stored Intent for a PR (null when none computed yet) --
+  app.get('/pulls/:id/intent', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(container, req);
+    return service.getIntentForPull(workspaceId, req.params.id);
+  });
+
+  // ---- Risk Areas: synchronous recompute (the "Recompute" button) ----------
+  // CAPABLE model + diff WITH hunk bodies — pricier than Intent, rate-limited.
+  app.post(
+    '/pulls/:id/risks',
+    { schema: { params: IdParams }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (req) => {
+      const { workspaceId } = await getContext(container, req);
+      return service.computeRisksForPull(workspaceId, req.params.id);
+    },
+  );
+
+  // ---- Risk Areas: stored Risk Areas for a PR (null when none computed yet) -
+  app.get('/pulls/:id/risks', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(container, req);
+    return service.getRisksForPull(workspaceId, req.params.id);
   });
 
   // ---- SSE: live run events (replay buffer first, then live; ends on done) -
@@ -130,6 +169,17 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
     const { workspaceId } = await getContext(container, req);
     return service.reviewsForPull(workspaceId, req.params.id);
   });
+
+  // ---- Smart Diff: risk-ordered diff layout — NO LLM call, deterministically
+  // composes already-loaded pr_files + the latest review's findings. --------
+  app.get(
+    '/pulls/:id/smart-diff',
+    { schema: { params: IdParams } },
+    async (req): Promise<SmartDiff> => {
+      const { workspaceId } = await getContext(container, req);
+      return service.smartDiffForPull(workspaceId, req.params.id);
+    },
+  );
 
   // ---- Delete a whole review run (one agent's pass) + its findings --------
   app.delete('/reviews/:id', { schema: { params: IdParams } }, async (req) => {

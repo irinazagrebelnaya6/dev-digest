@@ -38,6 +38,7 @@ export function CodeLine({
   return (
     <div
       style={cs.rowWrap}
+      data-line={ln.newNo}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
