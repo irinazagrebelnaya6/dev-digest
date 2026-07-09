@@ -47,4 +47,5 @@ export const queryKeys = {
   prRisks: (prId: string | null | undefined) => ["pr-risks", prId] as const,
   prSmartDiff: (prId: string | null | undefined) => ["pr-smart-diff", prId] as const,
   prBlast: (prId: string | null | undefined) => ["pr-blast", prId] as const,
+  prBrief: (prId: string | null | undefined) => ["pr-brief", prId] as const,
 } as const;

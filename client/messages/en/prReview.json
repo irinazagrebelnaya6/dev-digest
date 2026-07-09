@@ -151,5 +151,24 @@
     "graph": "Graph",
     "priorPrs": "Prior PRs touching these files",
     "graphEmpty": "No caller relationships to graph."
+  },
+  "brief": {
+    "title": "Why + Risk Brief",
+    "regenerate": "Regenerate",
+    "regenerating": "Regenerating…",
+    "retry": "Retry",
+    "loadError": "Couldn’t load the brief.",
+    "emptyTitle": "No brief yet",
+    "emptyBody": "Open this PR to generate a Why + Risk Brief, or click Regenerate.",
+    "staleBadge": "May be outdated — the PR has new commits since this brief was generated.",
+    "degraded": "This brief is degraded — some inputs were unavailable.",
+    "degradedReason": "This brief is degraded: {reason}",
+    "riskLevel": "Risk level",
+    "severityHigh": "High",
+    "severityMedium": "Medium",
+    "severityLow": "Low",
+    "risksHeading": "Risks",
+    "reviewFocusHeading": "Review focus",
+    "modelBadge": "via {model}"
   }
 }
