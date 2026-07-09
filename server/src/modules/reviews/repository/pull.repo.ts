@@ -1,7 +1,7 @@
 import { and, eq, ne, desc, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
-import type { Intent, PriorPr, Risk } from '@devdigest/shared';
+import type { Brief, Intent, PriorPr, Risk } from '@devdigest/shared';
 import type { PullRow } from '../../../db/rows.js';
 
 // ---- PR lookup (workspace-scoped) -----------------------------------------
@@ -185,9 +185,17 @@ export async function upsertBrief(db: Db, prId: string, brief: Record<string, un
     .onConflictDoUpdate({ target: t.prBrief.prId, set: { json: merged } });
 }
 
-/** The stored partial brief blob for a PR, or `undefined` when nothing computed yet. */
-export async function getBrief(db: Db, prId: string): Promise<{ risks?: Risk[] } | undefined> {
+/**
+ * The stored partial brief blob for a PR, or `undefined` when nothing
+ * computed yet. `brief` (SPEC-04's Why + Risk Brief, its own sibling slice)
+ * and `briefGeneratedAt` (its persisted timestamp, `pr_brief` has no
+ * dedicated column) coexist with the pre-existing `risks` slice (D1/AC-12).
+ */
+export async function getBrief(
+  db: Db,
+  prId: string,
+): Promise<{ risks?: Risk[]; brief?: Brief; briefGeneratedAt?: string } | undefined> {
   const [row] = await db.select().from(t.prBrief).where(eq(t.prBrief.prId, prId));
   if (!row) return undefined;
-  return row.json as { risks?: Risk[] };
+  return row.json as { risks?: Risk[]; brief?: Brief; briefGeneratedAt?: string };
 }

@@ -1,6 +1,6 @@
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { Finding, Intent, Risk, RunSummary, RunTrace } from '@devdigest/shared';
+import type { Brief, Finding, Intent, Risk, RunSummary, RunTrace } from '@devdigest/shared';
 
 /**
  * A2 — review data-access. The ONLY layer touching the DB for the review
@@ -189,8 +189,8 @@ export class ReviewRepository {
     return pullRepo.upsertBrief(this.db, prId, brief as Record<string, unknown>);
   }
 
-  /** The stored partial brief blob for a PR, or `undefined` when none yet. */
-  getBrief(prId: string): Promise<{ risks?: Risk[] } | undefined> {
+  /** The stored partial brief blob for a PR (`risks` + `brief` slices), or `undefined` when none yet. */
+  getBrief(prId: string): Promise<{ risks?: Risk[]; brief?: Brief; briefGeneratedAt?: string } | undefined> {
     return pullRepo.getBrief(this.db, prId);
   }
 
