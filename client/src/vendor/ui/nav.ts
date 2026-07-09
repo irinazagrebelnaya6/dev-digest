@@ -28,14 +28,9 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    section: "AGENTS",
-    items: [
-      { key: "agents", label: "Agents", icon: "Cpu", href: "/agents", gKey: "a" },
-    ],
-  },
-  {
     section: "SKILL LAB",
     items: [
+      { key: "agents", label: "Agents", icon: "Cpu", href: "/agents", gKey: "a" },
       { key: "skills", label: "Skills", icon: "FlaskConical", href: "/skills", gKey: "s" },
       { key: "conventions", label: "Conventions", icon: "ListChecks", href: "/repos/:repoId/conventions", gKey: "v" },
     ],
