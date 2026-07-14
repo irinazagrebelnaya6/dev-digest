@@ -3,7 +3,7 @@ name: Eval Pipeline
 description: A code-only, zero-LLM eval harness that turns real accept/dismiss finding decisions into a frozen, per-agent regression suite so a system-prompt/model/skill change shows up as a measurable recall/precision/citation_accuracy delta.
 ---
 
-# Spec: Eval Pipeline  |  Spec ID: SPEC-05  |  Status: approved
+# Spec: Eval Pipeline  |  Spec ID: SPEC-05  |  Status: implemented
 Supersedes: none
 
 ## Problem & why
