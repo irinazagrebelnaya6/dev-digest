@@ -92,6 +92,25 @@ export const mockUserRepository: UserRepository = {
 }
 ```
 
+### Step 6 — Check for sibling-module coupling
+
+The dependency rule isn't just top-to-bottom inside one module — modules are peers of each other too. A module should be safe to read, test, and refactor without knowing another feature module's internals.
+
+Ask: does this import cross from `modules/<a>/` into `modules/<b>/`'s `domain/`, `application/`, or `adapters/`?
+
+```ts
+// BAD — notifications reaches directly into billing's adapter internals
+import { PostgresInvoiceRepository } from '../billing/adapters/db/postgres-invoice.repository.js';
+
+class NotificationService {
+  private invoices = new PostgresInvoiceRepository(db); // now coupled to billing's storage details
+}
+```
+
+If `<a>` imports a concrete class from `<b>` (a repository, a use case, a mapper), that's a lateral dependency violation: `<a>` breaks if `<b>`'s internals change, and can't be tested without `<b>`'s real adapters. The fix is to go through `<b>`'s own public surface instead — its exported use case, its HTTP routes, or a shared, container-level dependency both modules are intentionally allowed to use (see `container.reviewRepo` in this codebase for an existing example of a repository deliberately shared across modules, as opposed to one module reaching into another's private adapter file).
+
+If `<a>` needs a capability from `<b>` that isn't already exposed that way, add it to `<b>`'s public surface or the shared container — don't reach into `<b>/adapters/` or `<b>/domain/` from outside `<b>`.
+
 ## Expected output
 
 A new module should have this shape:
@@ -121,3 +140,4 @@ modules/users/
 | `new PostgresRepo()` inside use case | Inject via constructor, wire in `container.ts` |
 | Controller calls repo directly | Add a use case in between |
 | Zod schema used as domain model | Keep Zod at route layer, map to domain type |
+| Module A imports module B's repository/use case class directly | Go through B's public surface (routes, exported use case, or a shared container-level dependency) |
