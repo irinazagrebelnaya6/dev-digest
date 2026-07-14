@@ -11,17 +11,20 @@
 # instead of running (or failing) anything for it.
 #
 # All three tiers run on OpenRouter, never the Claude subscription, so PR runs never touch the
-# maintainer's personal quota. Model choice is a config knob, not a UI surface — see the `env:`
-# blocks below:
-#   - EVAL_MODEL_CONTENT   — skills (content tier, no tools) + agents (tool tier, own Read/Grep/
+# maintainer's personal quota. Model choice is a config knob, not a UI surface — set once in the
+# `detect` job's "Model config" step below (GitHub Actions has no cross-job way to read one
+# top-level `env:` from another job's `env:` — the `env` context isn't available inside an `env:`
+# key at all — so the models are computed as job OUTPUTS instead and every other job reads them
+# via `needs.detect.outputs.*`):
+#   - eval_model_content   — skills (content tier, no tools) + agents (tool tier, own Read/Grep/
 #     Glob only, no subagent dispatch). Just needs to be cheap and to follow instructions;
 #     deepseek/deepseek-chat is verified for this in evals/README.md's runner table.
-#   - EVAL_MODEL_WORKFLOW  — the workflow tier's `dispatch` cases assert the model actually
+#   - eval_model_workflow  — the workflow tier's `dispatch` cases assert the model actually
 #     invokes the Task/Agent tool to hand off to a subagent. Of the models evals/README.md
 #     verifies, only google/gemini-2.5-flash reliably does that — deepseek and gpt-4.1-mini both
 #     do the work inline instead of dispatching. This one is not a cost choice, it's a capability
 #     requirement.
-# To switch models repo-wide, edit the two env vars below — nothing else changes.
+# To switch models repo-wide, edit the "Model config" step in the `detect` job — nothing else changes.
 #
 # Requires the repo secret OPENROUTER_API_KEY (Settings → Secrets and variables → Actions).
 name: evals
@@ -43,13 +46,13 @@ concurrency:
 
 env:
   EVAL_BACKEND: openrouter
-  EVAL_MODEL_CONTENT: deepseek/deepseek-chat
-  EVAL_JUDGE_MODEL_CONTENT: google/gemini-2.5-flash
-  EVAL_MODEL_WORKFLOW: google/gemini-2.5-flash
 
 jobs:
   # Maps the PR's changed files onto which eval suites (if any) need to run, and which changed
-  # artifacts have no evals at all (logged as SKIP further down, never failed).
+  # artifacts have no evals at all (logged as SKIP further down, never failed). Also the single
+  # source of truth for model choice (see the file-level comment above) — every other job reads
+  # these back via needs.detect.outputs.*, since a job's env: block can't reference another env:
+  # block directly.
   detect:
     runs-on: ubuntu-latest
     outputs:
@@ -58,10 +61,22 @@ jobs:
       run_workflow: ${{ steps.detect.outputs.run_workflow }}
       skipped_skills: ${{ steps.detect.outputs.skipped_skills }}
       skipped_agents: ${{ steps.detect.outputs.skipped_agents }}
+      eval_model_content: ${{ steps.models.outputs.eval_model_content }}
+      eval_judge_model_content: ${{ steps.models.outputs.eval_judge_model_content }}
+      eval_model_workflow: ${{ steps.models.outputs.eval_model_workflow }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Model config
+        id: models
+        run: |
+          {
+            echo "eval_model_content=deepseek/deepseek-chat"
+            echo "eval_judge_model_content=google/gemini-2.5-flash"
+            echo "eval_model_workflow=google/gemini-2.5-flash"
+          } >> "$GITHUB_OUTPUT"
 
       - name: List changed files
         id: changed
@@ -92,8 +107,8 @@ jobs:
         working-directory: evals
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      EVAL_MODEL: ${{ env.EVAL_MODEL_CONTENT }}
-      EVAL_JUDGE_MODEL: ${{ env.EVAL_JUDGE_MODEL_CONTENT }}
+      EVAL_MODEL: ${{ needs.detect.outputs.eval_model_content }}
+      EVAL_JUDGE_MODEL: ${{ needs.detect.outputs.eval_judge_model_content }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -125,8 +140,8 @@ jobs:
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       OPENROUTER_BASE_URL: http://localhost:4000
-      EVAL_MODEL: ${{ env.EVAL_MODEL_CONTENT }}
-      EVAL_JUDGE_MODEL: ${{ env.EVAL_JUDGE_MODEL_CONTENT }}
+      EVAL_MODEL: ${{ needs.detect.outputs.eval_model_content }}
+      EVAL_JUDGE_MODEL: ${{ needs.detect.outputs.eval_judge_model_content }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -158,8 +173,8 @@ jobs:
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       OPENROUTER_BASE_URL: http://localhost:4000
-      EVAL_MODEL: ${{ env.EVAL_MODEL_WORKFLOW }}
-      EVAL_JUDGE_MODEL: ${{ env.EVAL_MODEL_WORKFLOW }}
+      EVAL_MODEL: ${{ needs.detect.outputs.eval_model_workflow }}
+      EVAL_JUDGE_MODEL: ${{ needs.detect.outputs.eval_model_workflow }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
