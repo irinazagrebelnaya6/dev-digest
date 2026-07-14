@@ -42,7 +42,9 @@ export const cases: SkillCase[] = [
     name: "full report follows the required 5-section structure with a Mermaid graph",
     kind: "quality",
     prompt: `Run a dependency check on this repo. I want the full report: graph, sizes, prioritized findings, recommendations.\n\n${REPO_DATA}`,
-    grounding: ["```mermaid", "flowchart"],
+    // "graph" and "flowchart" are both valid Mermaid syntax for a directional diagram — which one
+    // a model defaults to isn't what this gate checks, only that a real diagram is present.
+    grounding: ["```mermaid", ["flowchart", "graph"]],
     practices: [
       "the report has a section named 'Scope' listing which packages (client, server, reviewer-core, e2e) were analyzed",
       "the report includes a Mermaid diagram (a fenced ```mermaid code block using flowchart) showing dependency relationships between packages",

@@ -16,9 +16,11 @@
 # top-level `env:` from another job's `env:` — the `env` context isn't available inside an `env:`
 # key at all — so the models are computed as job OUTPUTS instead and every other job reads them
 # via `needs.detect.outputs.*`):
-#   - eval_model_skills    — skills content tier (no tools, judge thresholds ~0.6-0.7). Just needs
-#     to be cheap and to follow instructions; deepseek/deepseek-chat is verified for this in
-#     evals/README.md's runner table.
+#   - eval_model_skills    — skills content tier (no tools, judge thresholds ~0.6-0.7). Started on
+#     deepseek/deepseek-chat (cheapest option evals/README.md verifies), but a real CI run missed
+#     a judged practice (0.33 vs the 0.6 gate — failed to distinguish internal path-alias deps from
+#     external npm ones). google/gemini-2.5-flash instead, for the same reliability reason as
+#     eval_model_agents below.
 #   - eval_model_agents    — agents tool tier (own Read/Grep/Glob, no subagent dispatch, but
 #     threshold:1.0 cases that require exact output-format compliance — verbatim quotes, an
 #     explicit PASS/FAIL gate). Ran on deepseek first; it found both violations and named the
@@ -81,7 +83,7 @@ jobs:
         id: models
         run: |
           {
-            echo "eval_model_skills=deepseek/deepseek-chat"
+            echo "eval_model_skills=google/gemini-2.5-flash"
             echo "eval_judge_model_skills=google/gemini-2.5-flash"
             echo "eval_model_agents=google/gemini-2.5-flash"
             echo "eval_judge_model_agents=google/gemini-2.5-flash"

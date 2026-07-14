@@ -26,8 +26,9 @@ export interface QualityCase {
   prompt: string;
   /** Practices the judge scores (quality). Omit for a pure grounding case. */
   practices?: string[];
-  /** Substrings that must ALL appear before the judge runs (cheap-tier gate). */
-  grounding?: string[];
+  /** Substrings that must ALL appear before the judge runs (cheap-tier gate). An entry may be an
+   *  array of alternatives — at least one of them must appear — see patternMatch(). */
+  grounding?: (string | string[])[];
   /** Judge score gate (default 0.6). */
   threshold?: number;
   maxTurns?: number;
