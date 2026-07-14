@@ -44,11 +44,21 @@ const MUTATING_TOOLS = new Set(["Write", "Edit", "NotebookEdit", "Bash"]);
 const READONLY_FALLBACK = ["Read", "Grep", "Glob"];
 
 /**
- * The tools an agent DECLARES in its frontmatter (`tools: Read, Glob, Grep`), so the eval can run
- * a tool-using agent the way production does instead of crippling it to content-only. Derived per
- * agent from its own declaration — no per-agent wiring. Returns [] when the agent declares no
- * tools (genuine content-only agent). Mutating tools are stripped for safety; a `*` / "All tools"
- * grant collapses to the read-only fallback rather than handing over Write/Bash on the live repo.
+ * The tools an agent DECLARES in its frontmatter, so the eval can run a tool-using agent the way
+ * production does instead of crippling it to content-only. Derived per agent from its own
+ * declaration — no per-agent wiring. Returns [] when the agent declares no tools (genuine
+ * content-only agent). Mutating tools are stripped for safety; a `*` / "All tools" grant collapses
+ * to the read-only fallback rather than handing over Write/Bash on the live repo.
+ *
+ * Handles both frontmatter shapes actually used under .claude/agents/: the single-line
+ * `tools: Read, Glob, Grep` and the multi-line YAML list
+ *   tools:
+ *     - Read
+ *     - Grep
+ *     - Glob
+ * A naive single-line-only regex silently captured just the literal string "- Read" for the list
+ * form (matched, but wrong) — every agent using the list form was getting a single bogus tool name
+ * instead of its real declared set.
  */
 export function agentTools(agentName: string): string[] {
   const f = join(AGENTS_DIR, `${agentName}.md`);
@@ -56,9 +66,19 @@ export function agentTools(agentName: string): string[] {
   const md = readFileSync(f, "utf8");
   const fmEnd = md.startsWith("---") ? md.indexOf("\n---", 3) : -1;
   const frontmatter = fmEnd !== -1 ? md.slice(0, fmEnd) : "";
-  const line = frontmatter.match(/^tools:\s*(.+)$/m);
-  if (!line) return [];
-  const raw = line[1].trim();
+
+  let raw: string | undefined;
+  const listMatch = frontmatter.match(/^tools:[ \t]*\n((?:[ \t]*-[ \t]*.+\n?)+)/m);
+  if (listMatch) {
+    raw = listMatch[1]
+      .split("\n")
+      .map((l) => l.replace(/^[ \t]*-[ \t]*/, "").trim())
+      .filter((l) => l.length > 0)
+      .join(",");
+  } else {
+    raw = frontmatter.match(/^tools:[ \t]*(.+)$/m)?.[1]?.trim();
+  }
+  if (!raw) return [];
   if (raw === "*" || /all tools/i.test(raw)) return [...READONLY_FALLBACK];
   return raw
     .split(",")
