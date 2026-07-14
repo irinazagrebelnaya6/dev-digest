@@ -1,0 +1,1 @@
+mapping: A=new_skill, B=old_skill

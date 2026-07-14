@@ -1,0 +1,10 @@
+{
+  "expectations": [
+    { "text": "G1: Identifies that the route handler calls the repository directly instead of going through an application/use-case layer", "passed": true, "evidence": "\"Controller calls the repository directly — no use case in between... There is no application/ layer here at all.\"" },
+    { "text": "G2: Identifies that the void-invoice invariant (Invoice.markPaid()) is bypassed because the route updates the row directly, i.e. flags the resulting reachable bug, not just the structural smell", "passed": true, "evidence": "\"the pay route never constructs or touches an Invoice domain object... A void invoice can be marked 'paid' through this endpoint with no invariant check whatsoever\" — called out as 'the critical bug.'" },
+    { "text": "G3: Identifies that the raw DB row is returned directly from the GET endpoint instead of a mapped DTO/domain-shaped response", "passed": true, "evidence": "\"Raw DB row returned straight from the route — no boundary mapping... 'return row;' ... ships whatever shape findRowById returns... directly to the HTTP client.\"" },
+    { "text": "G4: Proposes concrete restructuring: a use case that the route calls, with domain rule enforcement and mapping at the boundary", "passed": true, "evidence": "Adds GetInvoiceUseCase/PayInvoiceUseCase; PayInvoiceUseCase calls invoice.markPaid() before save(); route reduced to validate/call-use-case/map via toInvoiceResponse." }
+  ],
+  "summary": { "passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0 },
+  "timing": { "executor_duration_seconds": 164.2 }
+}

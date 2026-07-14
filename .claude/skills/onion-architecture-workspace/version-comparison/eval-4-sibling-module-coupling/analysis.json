@@ -1,0 +1,46 @@
+{
+  "comparison_summary": {
+    "winner": "B",
+    "winner_skill": ".claude/skills/onion-architecture-workspace/skill-snapshot-v1/SKILL.md (OLD version, before Step 6 was added)",
+    "loser_skill": ".claude/skills/onion-architecture/SKILL.md (NEW version, with Step 6 — sibling-module coupling — added)",
+    "comparator_reasoning": "Both outputs passed all 4 assertions and correctly diagnosed the sibling-module coupling bug. The comparator preferred B (old skill) because its fix places the new port inside the consuming module (modules/notifications/ports/), fully severing the compile-time dependency on billing, and because it added a forward-looking anti-corruption-adapter note. It marked down A (new skill) partly for referencing 'this codebase's container.reviewRepo pattern' as 'speculative and not grounded in the reviewed file.'"
+  },
+  "correction_to_blind_judgment": "The comparator's core criticism of A is factually wrong, for a reason baked into how blind comparison works: it has no access to this codebase, so it can't verify claims about real precedent. container.reviewRepo is NOT speculative — it is a real, existing pattern in this repository: server/src/modules/brief/assembler.ts and server/src/modules/reviews/risk-service.ts both call container.reviewRepo.* directly today, confirmed by grep during this session's earlier eval-0 work. Step 6 (the new addition) explicitly instructs the model to cite this exact precedent as an example of an intentionally-shared cross-module repository, and the new-skill answer followed that instruction correctly. So one of the two stated reasons the comparator preferred B rests on a false premise — it just couldn't check the premise, by design.",
+  "winner_strengths": [
+    "B's port is defined by the consumer (notifications) rather than the provider (billing), which is a more classically 'pure' ports-and-adapters shape: the client defines only the capability it needs, and any provider can satisfy it structurally.",
+    "B enumerated a third, more granular issue (inconsistent DI treatment between the two constructor dependencies) that A folded into its main two points instead of calling out separately.",
+    "B included a specific fallback design (a thin anti-corruption adapter under modules/notifications/adapters/ for if billing's row shape ever diverges from the port) that A did not mention."
+  ],
+  "loser_weaknesses": [
+    "None that are actually skill-quality weaknesses. A's core diagnosis, downside explanation, and fix are equivalent in substance to B's and pass all 4 assertions.",
+    "A's one 'penalized' trait — citing container.reviewRepo as real repo precedent — is not a weakness at all; it's exactly what a grounded, codebase-aware review should do. It only reads as a weakness to a judge with no access to verify it, which is an artifact of the blind-comparison setup, not of the new skill."
+  ],
+  "instruction_following": {
+    "winner": {
+      "score": 9,
+      "issues": ["Slightly more verbose than necessary in places"]
+    },
+    "loser": {
+      "score": 9,
+      "issues": ["No real issues — followed Step 6 exactly as written, including its suggestion to reference container.reviewRepo as precedent"]
+    }
+  },
+  "improvement_suggestions": [
+    {
+      "priority": "medium",
+      "category": "instructions",
+      "suggestion": "Step 6 currently only shows the 'provider (billing) publishes a port' shape via the container.reviewRepo reference. Add a short note that a consumer-owned port (the module that needs a capability defines the interface, and any provider can satisfy it structurally) is an equally valid alternative when the provider hasn't published a shared contract yet — so the model doesn't anchor on one shape when either is architecturally sound.",
+      "expected_impact": "Would make the new skill's guidance robust to both flavors of the fix instead of implicitly steering toward the provider-owned-port shape, which is what the model here inferred from the one example given."
+    },
+    {
+      "priority": "low",
+      "category": "structure",
+      "suggestion": "This eval and its blind comparison surfaced a meta-lesson worth writing down for future skill-creator sessions on this project: when a skill's example deliberately cites real repo precedent, a codebase-blind comparator will sometimes penalize that citation as 'unverified,' even when it's accurate. If blind comparison is used again on evals with repo-specific references, consider passing the comparator a short 'these repo facts are true' allowlist so it isn't forced to guess.",
+      "expected_impact": "Would prevent a repeat of this exact false-negative in future comparisons on this skill or others that cite real project conventions."
+    }
+  ],
+  "transcript_insights": {
+    "winner_execution_pattern": "Read old SKILL.md (Steps 1-5, no sibling-module guidance) -> generalized the existing dependency-rule/DI anti-pattern language to reason its way to the cross-module issue anyway -> defined a consumer-owned port -> full fix + mock",
+    "loser_execution_pattern": "Read new SKILL.md (Steps 1-6, including sibling-module guidance + container.reviewRepo example) -> used Step 6's framing directly, including its specific real-precedent reference -> defined a provider-owned port matching that precedent -> full fix + mock"
+  }
+}

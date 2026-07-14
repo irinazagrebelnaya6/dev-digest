@@ -1,0 +1,3 @@
+
+
+{"eval_id":0,"eval_name":"schema-authoring","prompt":"Author a Zod schema + boundary validation for a signup POST body (email, form-string age, role enum, optional bio); return field-level errors + the TS type.","assertions":[{"id":"A1","text":"safeParse not parse"},{"id":"A2","text":"coerce form-string age to number"},{"id":"A3","text":"role as z.enum"},{"id":"A4","text":"email .email()"},{"id":"A5","text":"type via z.infer"},{"id":"A6","text":"field-level errors via flatten()"},{"id":"A7","text":"bio .optional()"}]}

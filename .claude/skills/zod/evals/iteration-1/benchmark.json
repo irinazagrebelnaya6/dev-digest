@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "skill_name": "zod",
+    "skill_path": "/home/irina/kurs_AI/dev-digest/.claude/skills/zod",
+    "executor_model": "inherited session model (claude-opus-4-8)",
+    "runs_per_configuration": 1,
+    "baseline": "without_skill (no skill; identical prompt)",
+    "note": "n=1 per (eval,config) \u2014 directional, not statistical. Generated from grading.json + timing.json."
+  },
+  "runs": [
+    {
+      "eval_name": "schema-authoring",
+      "config": "with_skill",
+      "passed": 7,
+      "total": 7,
+      "pass_rate": 100.0,
+      "time_seconds": 99.2,
+      "tokens": 99553
+    },
+    {
+      "eval_name": "schema-authoring",
+      "config": "without_skill",
+      "passed": 7,
+      "total": 7,
+      "pass_rate": 100.0,
+      "time_seconds": 46.1,
+      "tokens": 81216
+    },
+    {
+      "eval_name": "review-fix",
+      "config": "with_skill",
+      "passed": 7,
+      "total": 7,
+      "pass_rate": 100.0,
+      "time_seconds": 54.9,
+      "tokens": 93701
+    },
+    {
+      "eval_name": "review-fix",
+      "config": "without_skill",
+      "passed": 7,
+      "total": 7,
+      "pass_rate": 100.0,
+      "time_seconds": 38.0,
+      "tokens": 80809
+    }
+  ],
+  "config_summary": {
+    "with_skill": {
+      "pooled_passed": 14,
+      "pooled_total": 14,
+      "pooled_pass_rate": 100.0,
+      "mean_time_s": 77.0,
+      "mean_tokens": 96627
+    },
+    "without_skill": {
+      "pooled_passed": 14,
+      "pooled_total": 14,
+      "pooled_pass_rate": 100.0,
+      "mean_time_s": 42.0,
+      "mean_tokens": 81012
+    }
+  },
+  "delta_with_minus_without": {
+    "pass_rate_pp": 0.0,
+    "time_seconds": 35.0,
+    "tokens": 15615
+  },
+  "notes": [
+    "Both configs scored 14/14 \u2014 on these two cases the skill made NO scored difference. The base model already applies core Zod best practices unprompted: safeParse for untrusted input, z.coerce.number() for form-string age, z.enum for role, .email(), z.infer for the type, and flatten() for field-level errors.",
+    "The one real qualitative edge (invisible to the current assertions): VERSION-AWARENESS. Both with_skill answers targeted the repo's pinned Zod v3.24 (v3 APIs: z.string().email(), error.flatten()). The without_skill review-fix answer led with Zod 4 helpers (z.uuid(), z.email(), z.treeifyError()) that would NOT run against v3.24.",
+    "Cost of the skill: +35.0s and +15.6k tokens per run (reads SKILL.md + reference rule files).",
+    "Eval gaps to fix before trusting a 0pp delta: (1) no assertion checks the corrected code matches the INSTALLED Zod version; (2) neither case exercises the skill's differentiated rules (branded types, strict vs strip, discriminated unions, input-vs-output, i18n). Add harder cases targeting those to see if the skill earns its cost."
+  ]
+}

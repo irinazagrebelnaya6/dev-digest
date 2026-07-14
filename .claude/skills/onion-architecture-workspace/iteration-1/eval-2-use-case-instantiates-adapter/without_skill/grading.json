@@ -1,0 +1,10 @@
+{
+  "expectations": [
+    { "text": "F1: Identifies that the use case constructs the concrete PostgresInvoiceRepository itself instead of receiving it via constructor injection", "passed": true, "evidence": "\"Application layer instantiates a concrete infrastructure adapter... does new PostgresInvoiceRepository(db) inside its own constructor.\"" },
+    { "text": "F2: Explains the concrete downside: the use case can't be unit-tested without a real DB / breaks DI", "passed": true, "evidence": "\"writing a fast unit test with an in-memory fake requires touching the use case itself\" and \"nothing outside can inject a test double or an alternate implementation.\"" },
+    { "text": "F3: Proposes the use case depend on a port/interface type, injected via the constructor", "passed": true, "evidence": "\"constructor(private readonly repo: InvoiceRepository) {}\" with a new ports/invoice-repository.port.ts." },
+    { "text": "F4: Proposes wiring the concrete adapter at the composition root (container.ts) rather than inside the use case", "passed": true, "evidence": "Provides modules/billing/composition-root.ts with createIssueInvoiceUseCase(db) factory that constructs the adapter once and injects it — functionally a composition root, though not literally named container.ts." }
+  ],
+  "summary": { "passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0 },
+  "timing": { "executor_duration_seconds": 157.6 }
+}

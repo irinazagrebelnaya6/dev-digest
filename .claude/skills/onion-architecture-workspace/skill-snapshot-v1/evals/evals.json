@@ -1,0 +1,60 @@
+{
+  "skill_name": "onion-architecture",
+  "baseline": "without_skill (no skill; identical prompt)",
+  "evals": [
+    {
+      "id": 0,
+      "name": "module-layer-design",
+      "prompt": "I'm adding a small new feature to DevDigest (Fastify + Drizzle + Postgres, TypeScript): automatically flag PRs that touch files with no test coverage (an 'untested-touch' rule) and persist that flag per PR so the UI can show a badge. Design the module from scratch: what files/classes/interfaces do I need, where does each one live, and how do I wire it into the DI container (server/src/platform/container.ts)? Sketch the file layout and key signatures — no need for full implementations, just enough to see the shape and the dependency direction.",
+      "expected_output": "A layered module (domain/application/adapters) where the rule/entity logic has zero framework imports, the use case depends on a port interface (not a concrete repository class), the concrete Postgres repository + a row<->domain mapper live in the adapter layer, wiring happens once in container.ts, and a mock adapter is mentioned for testing the use case without a real DB.",
+      "files": [],
+      "assertions": [
+        { "id": "D1", "text": "Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service" },
+        { "id": "D2", "text": "The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import" },
+        { "id": "D3", "text": "The application/use-case class depends on a port/interface for persistence, not a concrete adapter class" },
+        { "id": "D4", "text": "Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself" },
+        { "id": "D5", "text": "Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary" },
+        { "id": "D6", "text": "Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB" }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "domain-importing-infra",
+      "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/domain/invoice.entity.ts\nimport { invoicesTable } from '../../../db/schema/invoices.js';\n\nexport type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';\n\nexport class Invoice {\n  constructor(\n    readonly id: string,\n    readonly workspaceId: string,\n    private amountCents: number,\n    private status: InvoiceStatus,\n  ) {}\n\n  markPaid(): void {\n    if (this.status === 'void') {\n      throw new Error('Cannot mark a void invoice as paid');\n    }\n    this.status = 'paid';\n  }\n\n  toRow(): typeof invoicesTable.$inferInsert {\n    return {\n      id: this.id,\n      workspaceId: this.workspaceId,\n      amountCents: this.amountCents,\n      status: this.status,\n    };\n  }\n\n  get amount(): number {\n    return this.amountCents / 100;\n  }\n}\n```",
+      "expected_output": "Flags the domain entity importing the Drizzle table/schema directly (outward dependency from domain to infra) and flags the toRow() row-mapping method living inside the domain class. Fix: the entity depends only on plain/domain types, and mapping to the Drizzle insert/select shape moves to a separate adapter-level mapper (e.g. invoice.mapper.ts), matching the pattern in server/src/adapters/.",
+      "files": ["evals/fixtures/invoice.entity.ts"],
+      "assertions": [
+        { "id": "E1", "text": "Identifies that the domain entity imports the Drizzle table/schema directly, violating inward-only dependency direction" },
+        { "id": "E2", "text": "Identifies that the toRow() row-mapping method lives inside the domain entity and should move to an adapter-level mapper" },
+        { "id": "E3", "text": "Proposes a concrete fix: the entity depends only on primitive/domain types, and mapping to $inferInsert/$inferSelect happens in a separate mapper" },
+        { "id": "E4", "text": "Provides corrected code implementing the fix, not just a description of the problem" }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "use-case-instantiates-adapter",
+      "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/application/issue-invoice.use-case.ts\nimport { PostgresInvoiceRepository } from '../adapters/db/postgres-invoice.repository.js';\nimport type { Db } from '../../../db/client.js';\nimport { Invoice } from '../domain/invoice.entity.js';\n\nexport interface IssueInvoiceCommand {\n  workspaceId: string;\n  amountCents: number;\n}\n\nexport class IssueInvoiceUseCase {\n  private repo: PostgresInvoiceRepository;\n\n  constructor(db: Db) {\n    this.repo = new PostgresInvoiceRepository(db);\n  }\n\n  async execute(cmd: IssueInvoiceCommand): Promise<string> {\n    const invoice = new Invoice(crypto.randomUUID(), cmd.workspaceId, cmd.amountCents, 'draft');\n    await this.repo.save(invoice);\n    return invoice.id;\n  }\n}\n```",
+      "expected_output": "Flags the use case constructing the concrete PostgresInvoiceRepository itself (and importing it directly) instead of depending on a port/interface injected via the constructor. Fix: the use case takes a repository port interface as a constructor parameter; the concrete Postgres adapter is instantiated once and wired in at the composition root (container.ts), matching the pattern in server/src/platform/container.ts.",
+      "files": [],
+      "assertions": [
+        { "id": "F1", "text": "Identifies that the use case constructs the concrete PostgresInvoiceRepository itself instead of receiving it via constructor injection" },
+        { "id": "F2", "text": "Explains the concrete downside: the use case can't be unit-tested without a real DB / breaks DI" },
+        { "id": "F3", "text": "Proposes the use case depend on a port/interface type, injected via the constructor" },
+        { "id": "F4", "text": "Proposes wiring the concrete adapter at the composition root (container.ts) rather than inside the use case" }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "controller-bypasses-use-case",
+      "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/adapters/http/invoices.routes.ts\nimport type { FastifyInstance } from 'fastify';\nimport type { ZodTypeProvider } from 'fastify-type-provider-zod';\nimport { getContext } from '../../../_shared/context.js';\nimport { PostgresInvoiceRepository } from '../db/postgres-invoice.repository.js';\nimport { IdParams } from '../../../_shared/schemas.js';\n\nexport default async function invoicesRoutes(appBase: FastifyInstance) {\n  const app = appBase.withTypeProvider<ZodTypeProvider>();\n  const repo = new PostgresInvoiceRepository(app.container.db);\n\n  app.get('/invoices/:id', { schema: { params: IdParams } }, async (req) => {\n    const { workspaceId } = await getContext(app.container, req);\n    const row = await repo.findRowById(workspaceId, req.params.id);\n    return row;\n  });\n\n  app.post('/invoices/:id/pay', { schema: { params: IdParams } }, async (req, reply) => {\n    const { workspaceId } = await getContext(app.container, req);\n    const row = await repo.findRowById(workspaceId, req.params.id);\n    if (!row) {\n      reply.status(404);\n      return { error: 'not found' };\n    }\n    await repo.updateStatus(workspaceId, req.params.id, 'paid');\n    reply.status(204);\n  });\n}\n```\n\nFor context, elsewhere in this codebase `Invoice.markPaid()` throws if the invoice status is `'void'`.",
+      "expected_output": "Flags the route handler calling the repository directly instead of going through an application/use-case layer, and flags returning the raw DB row from GET instead of a mapped response. Critically, notes that going straight from route to repository means the pay endpoint updates the status column directly and never calls Invoice.markPaid() — so paying a void invoice is not actually prevented, even though the domain rule exists. Fix: introduce use cases (e.g. GetInvoiceUseCase / PayInvoiceUseCase) that load the domain entity, call markPaid(), and persist through a mapper.",
+      "files": [],
+      "assertions": [
+        { "id": "G1", "text": "Identifies that the route handler calls the repository directly instead of going through an application/use-case layer" },
+        { "id": "G2", "text": "Identifies that the void-invoice invariant (Invoice.markPaid()) is bypassed because the route updates the row directly, i.e. flags the resulting reachable bug, not just the structural smell" },
+        { "id": "G3", "text": "Identifies that the raw DB row is returned directly from the GET endpoint instead of a mapped DTO/domain-shaped response" },
+        { "id": "G4", "text": "Proposes concrete restructuring: a use case that the route calls, with domain rule enforcement and mapping at the boundary" }
+      ]
+    }
+  ]
+}

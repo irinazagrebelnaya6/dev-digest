@@ -18,3 +18,4 @@
 - Request lifecycle + DI diagram + API map → `server/README.md`
 - Architecture decisions → `docs/server/README.md`
 - Implementation instructions → `docs/server/INSTRUCTIONS.md`
+- API/route contract conventions → `docs/server/api-contracts.md`

@@ -1,0 +1,11 @@
+{
+  "eval_id": 1,
+  "eval_name": "domain-importing-infra",
+  "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/domain/invoice.entity.ts\nimport { invoicesTable } from '../../../db/schema/invoices.js';\n\nexport type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';\n\nexport class Invoice {\n  constructor(\n    readonly id: string,\n    readonly workspaceId: string,\n    private amountCents: number,\n    private status: InvoiceStatus,\n  ) {}\n\n  markPaid(): void {\n    if (this.status === 'void') {\n      throw new Error('Cannot mark a void invoice as paid');\n    }\n    this.status = 'paid';\n  }\n\n  toRow(): typeof invoicesTable.$inferInsert {\n    return {\n      id: this.id,\n      workspaceId: this.workspaceId,\n      amountCents: this.amountCents,\n      status: this.status,\n    };\n  }\n\n  get amount(): number {\n    return this.amountCents / 100;\n  }\n}\n```",
+  "assertions": [
+    { "id": "E1", "text": "Identifies that the domain entity imports the Drizzle table/schema directly, violating inward-only dependency direction" },
+    { "id": "E2", "text": "Identifies that the toRow() row-mapping method lives inside the domain entity and should move to an adapter-level mapper" },
+    { "id": "E3", "text": "Proposes a concrete fix: the entity depends only on primitive/domain types, and mapping to $inferInsert/$inferSelect happens in a separate mapper" },
+    { "id": "E4", "text": "Provides corrected code implementing the fix, not just a description of the problem" }
+  ]
+}

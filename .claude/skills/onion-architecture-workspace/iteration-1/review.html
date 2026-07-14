@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "onion-architecture", "runs": [{"id": "eval-0-module-layer-design-with_skill", "prompt": "I'm adding a small new feature to DevDigest (Fastify + Drizzle + Postgres, TypeScript): automatically flag PRs that touch files with no test coverage (an 'untested-touch' rule) and persist that flag per PR so the UI can show a badge. Design the module from scratch: what files/classes/interfaces do I need, where does each one live, and how do I wire it into the DI container (server/src/platform/container.ts)? Sketch the file layout and key signatures \u2014 no need for full implementations, just enough to see the shape and the dependency direction.", "eval_id": 0, "outputs": [{"name": "answer.md", "type": "text", "content": "# Module design: `untested-touch` (flag PRs touching files with no test coverage)\n\n## Layer identification (Step 1)\n\n- Deciding *whether* a set of changed files counts as \"untested\" is a pure rule \u2014 no framework/DB import needed \u2192 **domain**.\n- Orchestrating \"fetch PR's changed files, fetch repo's known files, run the rule, persist the verdict\" \u2192 **application** (use case, depends only on ports).\n- Reading the PR diff, reading the repo file index, writing the flag to Postgres, exposing it over HTTP \u2192 **adapters** (Drizzle, and calls into other modules' infra).\n\nNo LLM is involved \u2014 this is a deterministic convention check (`foo.ts` \u2192 does `foo.test.ts` / `foo.spec.ts` / `__tests__/foo.test.ts` exist in the repo's file list?), so there's no `LLMProvider` port and no grounding step. Keep it that simple; don't reach for the review pipeline.\n\n## File layout\n\n```\nserver/src/modules/untested-touch/\n  domain/\n    untested-touch-flag.entity.ts          # persisted verdict for one PR\n    untested-touch-policy.ts               # pure rule, zero imports outward\n    untested-touch-flag-repository.port.ts # persistence port\n    pr-changed-files.port.ts               # port: \"what files did this PR touch\"\n    repo-file-index.port.ts                # port: \"what files exist in this repo@ref\"\n  application/\n    compute-untested-touch.use-case.ts     # write path: run rule, persist\n    get-untested-touch-flag.use-case.ts    # read path: for the UI badge\n  adapters/\n    db/\n      postgres-untested-touch-flag.repository.ts  # implements the repo port\n      untested-touch.mapper.ts                    # row <-> entity\n    pulls/\n      pr-changed-files.adapter.ts          # implements pr-changed-files.port by\n                                            # delegating to the existing pulls module\n    repo-intel/\n      repo-file-index.adapter.ts           # implements repo-file-index.port by\n                                            # delegating to the existing repo-intel index\n    http/\n      untested-touch.routes.ts             # Zod schemas + FastifyPluginAsyncZod\n```\n\n## Key signatures\n\n### domain/untested-touch-flag.entity.ts\n```ts\nexport class UntestedTouchFlag {\n  constructor(\n    readonly prId: string,\n    readonly flagged: boolean,\n    readonly untestedFiles: string[], // subset of changed files with no test counterpart\n    readonly computedAt: Date,\n  ) {}\n}\n```\n\n### domain/untested-touch-policy.ts\n```ts\nexport interface UntestedTouchInput {\n  changedFiles: string[] // paths touched by the PR diff\n  repoFiles: string[]    // all known file paths in the repo at this ref\n}\n\nexport interface UntestedTouchVerdict {\n  flagged: boolean\n  untestedFiles: string[]\n}\n\n// Pure \u2014 no Drizzle, no Fastify, no I/O. Unit-testable with plain arrays.\nexport class UntestedTouchPolicy {\n  evaluate(input: UntestedTouchInput): UntestedTouchVerdict\n  private isTestableSource(path: string): boolean   // excludes .md, config, generated files, etc.\n  private hasTestCounterpart(path: string, repoFiles: string[]): boolean // convention match\n}\n```\n\n### domain/untested-touch-flag-repository.port.ts\n```ts\nimport type { UntestedTouchFlag } from './untested-touch-flag.entity'\n\nexport interface UntestedTouchFlagRepository {\n  findByPrId(prId: string, workspaceId: string): Promise<UntestedTouchFlag | null>\n  save(flag: UntestedTouchFlag, workspaceId: string): Promise<void>\n}\n```\n\n### domain/pr-changed-files.port.ts and domain/repo-file-index.port.ts\n```ts\nexport interface PrChangedFilesPort {\n  listChangedFilePaths(prId: string, workspaceId: string): Promise<string[]>\n}\n\nexport interface RepoFileIndexPort {\n  listFilePaths(repoId: string, ref: string): Promise<string[]>\n}\n```\nThese two are separate, narrow ports rather than one \"give me everything\" port \u2014 `ComputeUntestedTouchUseCase` depends on interfaces it actually needs, and each gets its own mock in tests. If the `pulls` module already exposes an equivalent \"changed files for PR\" capability, `PrChangedFilesPort` should mirror that shape so the adapter is a thin pass-through, not a re-implementation.\n\n### application/compute-untested-touch.use-case.ts\n```ts\nimport type { PrChangedFilesPort } from '../domain/pr-changed-files.port'\nimport type { RepoFileIndexPort } from '../domain/repo-file-index.port'\nimport type { UntestedTouchFlagRepository } from '../domain/untested-touch-flag-repository.port'\nimport { UntestedTouchPolicy } from '../domain/untested-touch-policy'\nimport { UntestedTouchFlag } from '../domain/untested-touch-flag.entity'\n\nexport class ComputeUntestedTouchUseCase {\n  constructor(\n    private prFiles: PrChangedFilesPort,\n    private repoFiles: RepoFileIndexPort,\n    private flags: UntestedTouchFlagRepository,\n    private policy: UntestedTouchPolicy = new UntestedTouchPolicy(),\n  ) {}\n\n  async execute(prId: string, repoId: string, ref: string, workspaceId: string): Promise<UntestedTouchFlag>\n}\n```\n\n### application/get-untested-touch-flag.use-case.ts\n```ts\nimport type { UntestedTouchFlagRepository } from '../domain/untested-touch-flag-repository.port'\n\nexport class GetUntestedTouchFlagUseCase {\n  constructor(private flags: UntestedTouchFlagRepository) {}\n  async execute(prId: string, workspaceId: string) // -> UntestedTouchFlag | null, for the UI badge\n}\n```\n\n### adapters/db/postgres-untested-touch-flag.repository.ts\n```ts\nimport type { UntestedTouchFlagRepository } from '../../domain/untested-touch-flag-repository.port'\nimport { toDomain, toRow } from './untested-touch.mapper'\nimport { pullRequestsTable } from '@/db/schema'\nimport { and, eq } from 'drizzle-orm'\nimport type { DbClient } from '@/platform/db'\n\nexport class PostgresUntestedTouchFlagRepository implements UntestedTouchFlagRepository {\n  constructor(private db: DbClient) {}\n  async findByPrId(prId: string, workspaceId: string) { /* select, scoped by workspace_id, map via toDomain */ }\n  async save(flag: UntestedTouchFlag, workspaceId: string) { /* update, scoped by workspace_id + prId, map via toRow */ }\n}\n```\n\n**Persistence note (respects the \"no new tables\" rule):** the flag is per-PR, 1:1 data, so it belongs as new *columns* on the existing `pull_requests` table, not a new table:\n- `untested_touch_flagged boolean not null default false`\n- `untested_touch_files jsonb not null default '[]'`\n- `untested_touch_computed_at timestamptz`\n\nAdd these via a normal ALTER TABLE migration, same pattern as other lesson migrations that only add columns.\n\n### adapters/pulls/pr-changed-files.adapter.ts and adapters/repo-intel/repo-file-index.adapter.ts\n```ts\nexport class PullsChangedFilesAdapter implements PrChangedFilesPort {\n  constructor(private db: DbClient) {}\n  async listChangedFilePaths(prId: string, workspaceId: string): Promise<string[]>\n  // delegates to whatever the pulls module already uses to read diff file lists\n  // (existing diff/files table or the pulls module's own repository) \u2014 this adapter\n  // exists purely so `untested-touch` doesn't import pulls internals directly.\n}\n\nexport class RepoIntelFileIndexAdapter implements RepoFileIndexPort {\n  constructor(private db: DbClient) {}\n  async listFilePaths(repoId: string, ref: string): Promise<string[]>\n  // delegates to the repo-intel code index (server/src/modules/repo-intel/)\n}\n```\n\n### adapters/http/untested-touch.routes.ts\n```ts\nimport { z } from 'zod'\nimport type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'\nimport { getContext } from '@/modules/_shared'\n\nexport const untestedTouchRoutes: FastifyPluginAsyncZod = async (app) => {\n  app.get('/prs/:prId/untested-touch', {\n    schema: { params: z.object({ prId: z.string() }) },\n  }, async (req) => {\n    const { workspaceId } = getContext(req)\n    return req.container.getUntestedTouchFlag.execute(req.params.prId, workspaceId)\n  })\n\n  app.post('/prs/:prId/untested-touch/recompute', {\n    schema: { params: z.object({ prId: z.string() }) },\n  }, async (req) => {\n    const { workspaceId } = getContext(req)\n    // repoId/ref for this PR come from the existing pulls context/service, not re-derived here\n    const { repoId, ref } = await req.container.getPrRepoRef.execute(req.params.prId, workspaceId)\n    return req.container.computeUntestedTouch.execute(req.params.prId, repoId, ref, workspaceId)\n  })\n}\n```\n`getContext(req)` is used on both routes so every query stays scoped to `workspace_id`, per the tenancy guard gotcha.\n\n## Wiring into `server/src/platform/container.ts`\n\n```ts\nimport { PostgresUntestedTouchFlagRepository } from '@/modules/untested-touch/adapters/db/postgres-untested-touch-flag.repository'\nimport { PullsChangedFilesAdapter } from '@/modules/untested-touch/adapters/pulls/pr-changed-files.adapter'\nimport { RepoIntelFileIndexAdapter } from '@/modules/untested-touch/adapters/repo-intel/repo-file-index.adapter'\nimport { ComputeUntestedTouchUseCase } from '@/modules/untested-touch/application/compute-untested-touch.use-case'\nimport { GetUntestedTouchFlagUseCase } from '@/modules/untested-touch/application/get-untested-touch-flag.use-case'\n\nconst untestedTouchFlagRepo = new PostgresUntestedTouchFlagRepository(db)\nconst prChangedFiles = new PullsChangedFilesAdapter(db)\nconst repoFileIndex = new RepoIntelFileIndexAdapter(db)\n\nconst computeUntestedTouch = new ComputeUntestedTouchUseCase(prChangedFiles, repoFileIndex, untestedTouchFlagRepo)\nconst getUntestedTouchFlag = new GetUntestedTouchFlagUseCase(untestedTouchFlagRepo)\n\nexport const container = {\n  // ...existing entries\n  computeUntestedTouch,\n  getUntestedTouchFlag,\n}\n```\n\nRegister `untestedTouchRoutes` alongside the other route plugins where the Fastify app is assembled (same place `subscriptionsRoutes`-style plugins get registered) \u2014 not inside `container.ts` itself, which stays the pure composition root for use cases and adapters.\n\n**Trigger point:** the design above exposes `computeUntestedTouch` as an explicit use case (callable from an HTTP route or a background job). If PRs should be flagged automatically on ingestion rather than on-demand, the *same* use case instance can simply be invoked as one more step at the end of the existing pulls ingestion flow \u2014 inject `computeUntestedTouch` into that flow via the container rather than duplicating the logic there.\n\n## Test doubles\n\nAdd to `server/src/adapters/mocks.ts`:\n```ts\nexport const mockUntestedTouchFlagRepository: UntestedTouchFlagRepository = {\n  findByPrId: vi.fn(),\n  save: vi.fn(),\n}\nexport const mockPrChangedFilesPort: PrChangedFilesPort = {\n  listChangedFilePaths: vi.fn(),\n}\nexport const mockRepoFileIndexPort: RepoFileIndexPort = {\n  listFilePaths: vi.fn(),\n}\n```\nThis lets `ComputeUntestedTouchUseCase` and `UntestedTouchPolicy` be unit-tested with zero DB/network, per the DI contract.\n\n## Dependency direction (inward only)\n\n```\nadapters/http/untested-touch.routes.ts\n        \u2502  calls\n        \u25bc\napplication/compute-untested-touch.use-case.ts\napplication/get-untested-touch-flag.use-case.ts\n        \u2502  imports (port interfaces only)\n        \u25bc\ndomain/untested-touch-policy.ts\ndomain/untested-touch-flag.entity.ts\ndomain/*.port.ts\n        \u25b2  implements\n        \u2502\nadapters/db/postgres-untested-touch-flag.repository.ts\nadapters/pulls/pr-changed-files.adapter.ts\nadapters/repo-intel/repo-file-index.adapter.ts\n```\n\nNothing in `domain/` imports Drizzle, Fastify, or another module's internals. The use case takes three ports as constructor args and never `new`s a concrete adapter \u2014 all wiring happens once, in `container.ts`.\n"}], "grading": {"expectations": [{"text": "D1: Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service", "passed": true, "evidence": "File layout shows server/src/modules/untested-touch/{domain,application,adapters}/... with domain/policy+entity+ports, application/two use cases, adapters/db+pulls+repo-intel+http."}, {"text": "D2: The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import", "passed": true, "evidence": "domain/untested-touch-policy.ts and domain/untested-touch-flag.entity.ts show plain TS classes/interfaces with zero framework imports; text states 'no Drizzle, no Fastify, no I/O'."}, {"text": "D3: The application/use-case class depends on a port/interface for persistence, not a concrete adapter class", "passed": true, "evidence": "ComputeUntestedTouchUseCase constructor takes PrChangedFilesPort, RepoFileIndexPort, UntestedTouchFlagRepository (all interfaces imported as types) plus a UntestedTouchPolicy default."}, {"text": "D4: Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself", "passed": true, "evidence": "Explicit 'Wiring into server/src/platform/container.ts' section shows `new PostgresUntestedTouchFlagRepository(db)` etc. constructed there and passed into the use cases."}, {"text": "D5: Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary", "passed": true, "evidence": "adapters/db/untested-touch.mapper.ts (toDomain/toRow) referenced and imported by the Postgres repository."}, {"text": "D6: Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB", "passed": true, "evidence": "'Test doubles' section adds mockUntestedTouchFlagRepository, mockPrChangedFilesPort, mockRepoFileIndexPort to server/src/adapters/mocks.ts."}], "summary": {"passed": 6, "failed": 0, "total": 6, "pass_rate": 1.0}, "timing": {"executor_duration_seconds": 201.2}, "eval_feedback": {"suggestions": [{"reason": "This answer never looked at the actual codebase (4 tool calls) \u2014 it applied the skill's textbook layered template faithfully but didn't check whether recent, comparable modules (Blast, Brief) actually use that structure, or whether the 'no new tables' rule pushes persistence into the existing pr_brief jsonb blob rather than new columns. The without-skill baseline did that research and reached a different, precedent-matching design. A stronger version of this eval would also assert whether the model checked recent precedent before proposing a structure, since 'textbook-correct' and 'consistent with this codebase' are not the same claim."}], "overall": "All 6 assertions pass, but see the cross-run note in benchmark.md \u2014 this eval doesn't distinguish 'applied the skill's structure' from 'grounded the structure in actual repo precedent,' and those two turned out to diverge on this exact task."}}}, {"id": "eval-0-module-layer-design-without_skill", "prompt": "I'm adding a small new feature to DevDigest (Fastify + Drizzle + Postgres, TypeScript): automatically flag PRs that touch files with no test coverage (an 'untested-touch' rule) and persist that flag per PR so the UI can show a badge. Design the module from scratch: what files/classes/interfaces do I need, where does each one live, and how do I wire it into the DI container (server/src/platform/container.ts)? Sketch the file layout and key signatures \u2014 no need for full implementations, just enough to see the shape and the dependency direction.", "eval_id": 0, "outputs": [{"name": "answer.md", "type": "text", "content": "# Design: \"untested-touch\" PR flag\n\nGoal: flag a PR when it touches source files that have no corresponding test\nfile, persist that verdict per PR, and let the UI badge it. Everything below\nwas checked against the actual codebase conventions (repo-intel facade,\n`blast`/`brief` modules, `pull.repo.ts`, `container.ts`, `modules/index.ts`) \u2014\nnot invented in a vacuum.\n\n## Key design decisions (and why)\n\n1. **No LLM involved \u2192 this is NOT `reviewer-core`.** `reviewer-core` is\n   reserved for the review *engine* (prompt building, structured-output\n   grounding, things that talk to an `LLMProvider`). Purely-deterministic\n   composers that reshape already-fetched data for one feature live inside\n   that feature's own server module \u2014 e.g. `modules/blast/blast.ts` and\n   `modules/reviews/smart-diff.ts` are both \"PURE \u2014 no LLM, no DB\" and both\n   live in `server/src/modules/<feature>/`, not in `reviewer-core/`. The\n   untested-touch rule follows that same precedent.\n\n2. **No new table, no new migration.** `server/CLAUDE.md`: \"Schema is\n   pre-created\u2026 Lessons add columns, never new tables. Do not write\n   per-feature migrations.\" Looking at how the existing **Why+Risk Brief**\n   feature (spec-04) persisted its own new shape, it did *not* add a column \u2014\n   it added a new sibling key inside the pre-existing generic blob:\n\n   ```ts\n   // server/src/db/schema/reviews.ts\n   export const prBrief = pgTable('pr_brief', {\n     prId: uuid('pr_id').primaryKey().references(() => pullRequests.id, { onDelete: 'cascade' }),\n     json: jsonb('json').notNull(),   // generic slice store, keyed by feature\n   });\n   ```\n   `pull.repo.ts`'s `upsertBrief`/`getBrief` shallow-merge into that `json`\n   blob (`{ ...existing, ...newSlice }`), which is exactly how `risks` and\n   `brief` coexist today. The untested-touch flag reuses this table with its\n   own `coverage` key \u2014 zero migrations needed.\n\n3. **No new adapter/port.** Existence-checking a candidate test path is just\n   `container.git.readFile(repo, path)` (already on `GitClient`) wrapped in\n   try/catch \u2014 no need to widen `CodeIndex` or add a new port.\n\n4. **No new `Container` getter for the service itself.** Precedent\n   (`BlastService`, `BriefService`): class-shaped feature services are\n   constructed ad hoc inside `routes.ts` as `new XService(container)`, not\n   stored on the container. Only *shared, cross-cutting* things get a\n   container getter (`container.git`, `container.reviewRepo`, `container.db`)\n   \u2014 and this feature needs none of those to be added, it reuses what's\n   already there.\n\n## File layout\n\n```\nserver/src/modules/coverage/                     # NEW module\n  rule.ts                                         # pure domain rule\n  service.ts                                      # orchestration (I/O)\n  routes.ts                                        # Fastify plugin (HTTP)\n\nserver/src/modules/reviews/repository/pull.repo.ts  # EDIT: + 2 functions\nserver/src/modules/reviews/repository.ts            # EDIT: + 2 facade methods\n\nserver/src/vendor/shared/contracts/coverage.ts     # NEW: Zod contract\nserver/src/vendor/shared/contracts/platform.ts     # EDIT: PrMeta.untested_touch\nserver/src/vendor/shared/index.ts                  # EDIT: export coverage.ts\n\nserver/src/modules/index.ts                        # EDIT: register `coverage` plugin\nserver/src/platform/container.ts                    # NO CHANGE (see decision #4)\n```\n\n## 1. Domain layer \u2014 `modules/coverage/rule.ts` (pure)\n\nZero DB, zero network, zero filesystem. Takes plain data in, plain data out \u2014\nthis is the piece a unit test exercises with no mocks at all.\n\n```ts\n/**\n * Untested-touch rule (PURE). Decides, from an already-resolved per-file\n * \"does a test exist for this?\" answer, whether a PR should be flagged, and\n * folds that into one persistable verdict. Never does I/O itself \u2014 callers\n * (service.ts) resolve `hasTest` by probing the repo and pass in the result.\n */\n\nexport interface FileTestStatus {\n  path: string;\n  /** True when at least one candidate test path for `path` was found. */\n  hasTest: boolean;\n  /** Candidate test paths that were probed (kept for UI drill-down / debugging). */\n  candidates: string[];\n}\n\nexport interface UntestedTouchResult {\n  flagged: boolean;\n  /** Touched, test-relevant files with no matching test file. */\n  untestedFiles: string[];\n  /** Touched files the rule intentionally skipped (tests/config/docs/generated). */\n  skipped: string[];\n  /** PR head SHA this verdict was computed against (staleness check, mirrors Brief). */\n  computedForSha: string;\n}\n\n/**\n * True when `path` itself needs a test at all \u2014 false for test files\n * themselves, config, docs, lockfiles, migrations, generated/build output.\n */\nexport function isTestRelevant(path: string): boolean;\n\n/**\n * Pure, convention-based guesses at where `path`'s test could live\n * (colocated `.test`/`.spec`, `__tests__/`, mirrored `tests/` tree, per\n * extension). Returns `[]` when `isTestRelevant(path)` is false.\n */\nexport function candidateTestPaths(path: string): string[];\n\n/** Fold per-file statuses into the persistable verdict. */\nexport function evaluateUntestedTouch(\n  files: FileTestStatus[],\n  headSha: string,\n): UntestedTouchResult;\n```\n\n## 2. Application layer \u2014 `modules/coverage/service.ts` (orchestration)\n\nDepends on the rule (inward, pure) and on **ports** (`GitClient` via\n`container.git`, `ReviewRepository`), never on concrete adapter classes.\n\n```ts\nimport type { Container } from '../../platform/container.js';\nimport { ReviewRepository } from '../reviews/repository.js';\nimport { NotFoundError } from '../../platform/errors.js';\nimport {\n  isTestRelevant,\n  candidateTestPaths,\n  evaluateUntestedTouch,\n  type UntestedTouchResult,\n} from './rule.js';\n\nexport class CoverageService {\n  private repo: ReviewRepository;\n\n  constructor(private container: Container) {\n    // Same convention as BlastService/BriefService: construct the shared\n    // repo locally rather than adding a container getter just for this.\n    this.repo = new ReviewRepository(container.db);\n  }\n\n  /** Serves the cached flag if fresh for the PR's current head SHA, else recomputes (mirrors Brief's getOrGenerate). */\n  async getOrCompute(workspaceId: string, prId: string): Promise<UntestedTouchResult> {\n    const pull = await this.repo.getPull(workspaceId, prId);\n    if (!pull) throw new NotFoundError('Pull request not found');\n    const stored = await this.repo.getCoverageFlag(pull.id);\n    if (stored && stored.computedForSha === pull.headSha) return stored;\n    return this.compute(pull);\n  }\n\n  /** Always recomputes and persists (mirrors Brief's `regenerate`). */\n  async recompute(workspaceId: string, prId: string): Promise<UntestedTouchResult> {\n    const pull = await this.repo.getPull(workspaceId, prId);\n    if (!pull) throw new NotFoundError('Pull request not found');\n    return this.compute(pull);\n  }\n\n  private async compute(pull: /* PullRow */ any): Promise<UntestedTouchResult> {\n    const repo = await this.repo.getRepo(pull.repoId);\n    if (!repo) throw new NotFoundError('Repo not found');\n\n    // Best-effort: make sure the local clone is checked out at this PR's\n    // head before probing candidate paths (readFile reads the working tree).\n    await this.container.git.fetchPullHead(repo, pull.number).catch(() => {});\n\n    const files = await this.repo.getPrFiles(pull.id);\n    const statuses = await Promise.all(\n      files\n        .map((f) => f.path)\n        .filter(isTestRelevant)\n        .map(async (path) => {\n          const candidates = candidateTestPaths(path);\n          const found = await Promise.all(\n            candidates.map((c) =>\n              this.container.git.readFile(repo, c).then(\n                () => true,\n                () => false,\n              ),\n            ),\n          );\n          return { path, candidates, hasTest: found.some(Boolean) };\n        }),\n    );\n\n    const result = evaluateUntestedTouch(statuses, pull.headSha);\n    await this.repo.upsertCoverageFlag(pull.id, result);\n    return result;\n  }\n}\n```\n\n## 3. Persistence \u2014 extend `pull.repo.ts` + `ReviewRepository` facade\n\n`server/src/modules/reviews/repository/pull.repo.ts` \u2014 add, right next to\n`upsertBrief`/`getBrief`, following the exact same shallow-merge-into-blob\nshape:\n\n```ts\nexport async function upsertCoverageFlag(\n  db: Db,\n  prId: string,\n  coverage: UntestedTouchResult,\n): Promise<void> {\n  const [existing] = await db.select().from(t.prBrief).where(eq(t.prBrief.prId, prId));\n  const merged = { ...((existing?.json as Record<string, unknown>) ?? {}), coverage };\n  await db\n    .insert(t.prBrief)\n    .values({ prId, json: merged })\n    .onConflictDoUpdate({ target: t.prBrief.prId, set: { json: merged } });\n}\n\nexport async function getCoverageFlag(\n  db: Db,\n  prId: string,\n): Promise<UntestedTouchResult | undefined> {\n  const [row] = await db.select().from(t.prBrief).where(eq(t.prBrief.prId, prId));\n  return (row?.json as { coverage?: UntestedTouchResult })?.coverage;\n}\n```\n\n`server/src/modules/reviews/repository.ts` (facade) \u2014 add two thin\ndelegating methods next to `getBrief`/`upsertBrief`:\n\n```ts\ngetCoverageFlag(prId: string): Promise<UntestedTouchResult | undefined> {\n  return pullRepo.getCoverageFlag(this.db, prId);\n}\nupsertCoverageFlag(prId: string, result: UntestedTouchResult): Promise<void> {\n  return pullRepo.upsertCoverageFlag(this.db, prId, result);\n}\n```\n\n## 4. Contract \u2014 `vendor/shared/contracts/coverage.ts` (NEW)\n\n```ts\nimport { z } from 'zod';\n\nexport const UntestedTouchResponse = z.object({\n  flagged: z.boolean(),\n  untested_files: z.array(z.string()),\n  skipped: z.array(z.string()),\n  computed_for_sha: z.string(),\n});\nexport type UntestedTouchResponse = z.infer<typeof UntestedTouchResponse>;\n```\n\nExport it from `vendor/shared/index.ts` alongside the other contract\nbarrels. Also extend `PrMeta` in `contracts/platform.ts` with one more\nnullish field, same convention as `score`/`findings_breakdown` (\"null until\ncomputed\"), so the PR **list** view can render the badge without a second\nrequest:\n\n```ts\n// PrMeta\nuntested_touch: z.boolean().nullish(),\n```\n\n## 5. Interface layer \u2014 `modules/coverage/routes.ts`\n\n```ts\nimport type { FastifyInstance } from 'fastify';\nimport type { ZodTypeProvider } from 'fastify-type-provider-zod';\nimport { UntestedTouchResponse } from '@devdigest/shared';\nimport { getContext } from '../_shared/context.js';\nimport { IdParams } from '../_shared/schemas.js';\nimport { CoverageService } from './service.js';\n\n/**\n * coverage module \u2014 \"untested-touch\" rule.\n *   GET  /pulls/:id/coverage           \u2192 cached flag, or compute-on-first-view.\n *   POST /pulls/:id/coverage/recompute \u2192 force a fresh check (e.g. after new commits).\n */\nexport default async function coverageRoutes(appBase: FastifyInstance) {\n  const app = appBase.withTypeProvider<ZodTypeProvider>();\n  const service = new CoverageService(app.container);\n\n  app.get(\n    '/pulls/:id/coverage',\n    { schema: { params: IdParams, response: { 200: UntestedTouchResponse } } },\n    async (req) => {\n      const { workspaceId } = await getContext(app.container, req);\n      return service.getOrCompute(workspaceId, req.params.id);\n    },\n  );\n\n  app.post(\n    '/pulls/:id/coverage/recompute',\n    {\n      schema: { params: IdParams, response: { 200: UntestedTouchResponse } },\n      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },\n    },\n    async (req) => {\n      const { workspaceId } = await getContext(app.container, req);\n      return service.recompute(workspaceId, req.params.id);\n    },\n  );\n}\n```\n\n## 6. Wiring \u2014 `modules/index.ts` (this IS the DI registration point)\n\n```ts\nimport coverage from './coverage/routes.js';\n// ...\nexport const modules: Record<string, FastifyPluginAsync> = {\n  // ...existing entries...\n  brief,\n  coverage,   // NEW\n};\n```\n\n## 7. `platform/container.ts` \u2014 no change\n\nThis is the answer to \"how do I wire it into the container\": **you don't\nadd anything to `Container` for this feature.** The precedent\n(`BlastService`, `BriefService`) is that a class-shaped feature service is\ninstantiated per-request in `routes.ts` via `new CoverageService(container)`,\nand it only needs two things the container already exposes:\n\n- `container.git` (existing `GitClient` getter \u2014 used for\n  `fetchPullHead`/`readFile`)\n- `container.db`, wrapped by a locally-constructed `ReviewRepository`\n  (same pattern `BlastService`/`BriefService` use)\n\nIf this were introducing a genuinely new **adapter** (e.g. a real coverage\ntool integration \u2014 Istanbul/`lcov.info` parsing, a CI coverage-report\nfetcher) *that* adapter would get an interface in `vendor/shared/adapters.ts`,\na concrete class in `server/src/adapters/coverage/<impl>.ts`, a\n`ContainerOverrides.coverage?: CoverageReportReader` entry, and a lazy getter\non `Container` \u2014 mirroring `codeIndex`/`depgraph`/`tokenizer`. The\npath-heuristic version described above doesn't need that; it's a good\nextension point to note in the plan, though.\n\n## Dependency direction (onion, inside out)\n\n```\nrule.ts            (domain)        \u2014 no imports of anything below\n   ^\nservice.ts          (application)  \u2014 imports rule.ts; depends on GitClient /\n   ^                                  ReviewRepository *interfaces* only\nroutes.ts           (interface)     \u2014 imports service.ts + shared Zod contract\n   ^\nmodules/index.ts    (composition)   \u2014 imports routes.ts, registers the plugin\nplatform/container.ts (composition) \u2014 already provides the two ports used;\n                                       untouched by this feature\n```\n\nNothing points outward from `rule.ts`; `service.ts` never imports Drizzle\ntable definitions or the concrete `SimpleGitClient`/adapters directly \u2014 it\nonly touches `container.git` (typed as `GitClient`) and `ReviewRepository`\n(typed as itself, but callers of *its* methods never see `t.prBrief`\ndirectly either \u2014 the jsonb-blob shape is an implementation detail hidden\ninside `pull.repo.ts`).\n\n## Testing shape this implies\n\n- `rule.test.ts` \u2014 pure unit tests, table-driven over paths\n  (`src/foo.ts` \u2192 `src/foo.test.ts` exists \u2192 not flagged; `src/bar.ts` \u2192 no\n  candidate exists \u2192 flagged; `migrations/0012_x.sql` \u2192 skipped, etc). No DB,\n  no git, no mocks.\n- `service.test.ts` \u2014 unit test with `container.git` mocked\n  (`src/adapters/mocks.ts` convention) and a mock `ReviewRepository`/db.\n- `coverage.it.test.ts` \u2014 integration test (real PG via testcontainers,\n  per the `*.it.test.ts` convention) verifying the `pr_brief.json` merge\n  round-trips the `coverage` slice without clobbering an existing `brief`/\n  `risks` slice.\n"}], "grading": {"expectations": [{"text": "D1: Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service", "passed": false, "evidence": "File layout is server/src/modules/coverage/{rule.ts, service.ts, routes.ts} \u2014 a deliberate flat layout, explicitly justified by precedent ('BlastService', 'BriefService' both live as one service.ts, not split into domain/application/adapters')."}, {"text": "D2: The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import", "passed": true, "evidence": "rule.ts is described as 'PURE \u2014 no DB, no network, no filesystem... plain data in, plain data out' with no imports shown beyond its own types."}, {"text": "D3: The application/use-case class depends on a port/interface for persistence, not a concrete adapter class", "passed": false, "evidence": "CoverageService constructor does `this.repo = new ReviewRepository(container.db)` \u2014 a concrete class instantiated inside the service, not a port interface injected from outside, mirroring the exact anti-pattern the skill's Step 3 warns against (though the answer explains this matches existing BlastService/BriefService convention)."}, {"text": "D4: Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself", "passed": false, "evidence": "Section '7. platform/container.ts \u2014 no change' explicitly states the adapter is NOT wired at the composition root; ReviewRepository is constructed inside CoverageService's own constructor instead."}, {"text": "D5: Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary", "passed": false, "evidence": "No mapper file or function is introduced; persistence goes through two new functions on the existing pull.repo.ts/ReviewRepository facade that read/write a typed slice of a jsonb blob directly, with no distinct domain entity to map to/from."}, {"text": "D6: Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB", "passed": true, "evidence": "'Testing shape' section: 'service.test.ts \u2014 unit test with container.git mocked (src/adapters/mocks.ts convention) and a mock ReviewRepository/db.'"}], "summary": {"passed": 2, "failed": 4, "total": 6, "pass_rate": 0.333}, "timing": {"executor_duration_seconds": 593.4}, "eval_feedback": {"suggestions": [{"reason": "This is the interesting case: the baseline's design isn't a naive miss on D1/D3/D4/D5 \u2014 it's a well-researched, deliberate deviation. It spent 33 tool calls reading server/CLAUDE.md, pull.repo.ts, container.ts, modules/index.ts, and the actual BlastService/BriefService implementations, and concluded the layered domain/application/adapters split (and a new mapper/port) would be over-engineering for a feature that reuses existing shared adapters and the pre-created jsonb-blob persistence convention. It even caught the repo's 'no new tables' rule from CLAUDE.md, which the with-skill answer did not check against (it recommended new columns on pull_requests, which is directionally fine but wasn't verified against the actual existing precedent of reusing the pr_brief blob). Whether D1/D3/D4/D5 *should* fail here is genuinely debatable \u2014 they're testing conformance to the skill's textbook template, not architectural soundness for this specific codebase."}], "overall": "Numerically the weakest run in the whole benchmark (2/6), but it may be evaluating the wrong thing: the assertions reward the skill's idealized layered template and penalize a grounded, precedent-matching answer that a senior engineer on this specific codebase might well prefer. Recommend either splitting this eval into two graded dimensions (skill-template conformance vs. codebase-precedent conformance) or adding an explicit tie-breaker note that flat-vs-layered is legitimately contextual."}}}, {"id": "eval-1-domain-importing-infra-with_skill", "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/domain/invoice.entity.ts\nimport { invoicesTable } from '../../../db/schema/invoices.js';\n\nexport type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';\n\nexport class Invoice {\n  constructor(\n    readonly id: string,\n    readonly workspaceId: string,\n    private amountCents: number,\n    private status: InvoiceStatus,\n  ) {}\n\n  markPaid(): void {\n    if (this.status === 'void') {\n      throw new Error('Cannot mark a void invoice as paid');\n    }\n    this.status = 'paid';\n  }\n\n  toRow(): typeof invoicesTable.$inferInsert {\n    return {\n      id: this.id,\n      workspaceId: this.workspaceId,\n      amountCents: this.amountCents,\n      status: this.status,\n    };\n  }\n\n  get amount(): number {\n    return this.amountCents / 100;\n  }\n}\n```", "eval_id": 1, "outputs": [{"name": "answer.md", "type": "text", "content": "# Review: `modules/billing/domain/invoice.entity.ts`\n\n## What's wrong\n\nThis file lives in `domain/`, but it violates the dependency rule in two related ways:\n\n1. **Domain imports infrastructure (outward dependency).**\n   ```ts\n   import { invoicesTable } from '../../../db/schema/invoices.js';\n   ```\n   `invoicesTable` is a Drizzle schema definition \u2014 an infrastructure concern. Per the onion architecture skill's Step 1/Step 2 checks: \"does this code have a framework/DB/HTTP import?\" \u2014 yes, so this file is pulling in an outer-layer dependency. The domain layer must have **zero** framework/DB imports. If `db/schema/invoices.js` changes (column renamed, ORM swapped), the domain entity breaks even though no business rule changed \u2014 that's the tell-tale sign of an inverted dependency.\n\n2. **Mapping to a persistence row happens inside the domain entity.**\n   ```ts\n   toRow(): typeof invoicesTable.$inferInsert { ... }\n   ```\n   Per Step 4 (\"Map at the boundary, never inside the domain\"), row mapping is an adapter responsibility. `$inferInsert` is a Drizzle-generated type \u2014 it must not leak into `domain/`. The entity should not know that it will eventually be persisted as a Postgres row, let alone via Drizzle specifically.\n\nThis is exactly **Mistake 1** in the skill's anti-pattern table: `import { pgTable }` (or an inferred table type) inside domain \u2192 fix by moving the row shape/mapping to an adapter and giving the entity its own plain fields.\n\nThe business logic itself (`markPaid`'s guard against void invoices, the `amount` getter) is fine and correctly lives in the entity \u2014 that part doesn't need to change.\n\n## The fix\n\nStrip the Drizzle import and `toRow()` out of the entity, and move row mapping to an adapter-layer mapper that imports both the domain entity and the schema (mappers are allowed to see both sides, since they sit at the boundary).\n\n```ts\n// modules/billing/domain/invoice.entity.ts\nexport type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';\n\nexport class Invoice {\n  constructor(\n    readonly id: string,\n    readonly workspaceId: string,\n    private amountCents: number,\n    private status: InvoiceStatus,\n  ) {}\n\n  markPaid(): void {\n    if (this.status === 'void') {\n      throw new Error('Cannot mark a void invoice as paid');\n    }\n    this.status = 'paid';\n  }\n\n  get amount(): number {\n    return this.amountCents / 100;\n  }\n\n  // Exposed so the adapter-layer mapper can build a row without\n  // the entity needing to know what a \"row\" is.\n  get currentAmountCents(): number {\n    return this.amountCents;\n  }\n\n  get currentStatus(): InvoiceStatus {\n    return this.status;\n  }\n}\n```\n\n```ts\n// modules/billing/adapters/db/invoice.mapper.ts\nimport { Invoice } from '../../domain/invoice.entity.js';\nimport { invoicesTable } from '../../../../db/schema/invoices.js';\n\ntype Row = typeof invoicesTable.$inferSelect;\n\nexport function toDomain(row: Row): Invoice {\n  return new Invoice(row.id, row.workspaceId, row.amountCents, row.status);\n}\n\nexport function toRow(invoice: Invoice): typeof invoicesTable.$inferInsert {\n  return {\n    id: invoice.id,\n    workspaceId: invoice.workspaceId,\n    amountCents: invoice.currentAmountCents,\n    status: invoice.currentStatus,\n  };\n}\n```\n\n```ts\n// modules/billing/adapters/db/postgres-invoice.repository.ts\nimport type { InvoiceRepository } from '../../domain/invoice-repository.port.js';\nimport type { Invoice } from '../../domain/invoice.entity.js';\nimport { toDomain, toRow } from './invoice.mapper.js';\nimport { invoicesTable } from '../../../../db/schema/invoices.js';\nimport { eq } from 'drizzle-orm';\nimport type { DbClient } from '../../../../platform/db.js';\n\nexport class PostgresInvoiceRepository implements InvoiceRepository {\n  constructor(private db: DbClient) {}\n\n  async findById(id: string): Promise<Invoice | null> {\n    const row = await this.db.query.invoicesTable.findFirst({\n      where: eq(invoicesTable.id, id),\n    });\n    return row ? toDomain(row) : null;\n  }\n\n  async save(invoice: Invoice): Promise<void> {\n    await this.db\n      .insert(invoicesTable)\n      .values(toRow(invoice))\n      .onConflictDoUpdate({ target: invoicesTable.id, set: toRow(invoice) });\n  }\n}\n```\n\n```ts\n// modules/billing/domain/invoice-repository.port.ts\nimport type { Invoice } from './invoice.entity.js';\n\nexport interface InvoiceRepository {\n  findById(id: string): Promise<Invoice | null>;\n  save(invoice: Invoice): Promise<void>;\n}\n```\n\n## Why this is better\n\n- `invoice.entity.ts` now has **zero** framework/DB imports \u2014 it can be unit-tested with no database, no Drizzle, no container.\n- If the Drizzle schema changes (a column renamed, a type tightened), only `invoice.mapper.ts` needs to change \u2014 the entity and any use case built on it are untouched.\n- The `InvoiceRepository` port belongs in `domain/` (interface only), and `PostgresInvoiceRepository` in `adapters/db/` implements it \u2014 following the same shape as the skill's expected module layout (`domain/`, `application/`, `adapters/`). A use case would depend on `InvoiceRepository` (the port), never on `PostgresInvoiceRepository` directly, and the concrete class would be wired once in `server/src/platform/container.ts`.\n- `$inferInsert`/`$inferSelect` types are now confined to the adapter/mapper, where Drizzle types are expected to live, instead of leaking into the domain's public API.\n"}], "grading": {"expectations": [{"text": "E1: Identifies that the domain entity imports the Drizzle table/schema directly, violating inward-only dependency direction", "passed": true, "evidence": "\"import { invoicesTable } from '../../../db/schema/invoices.js'\" ... \"pulling in an outer-layer dependency. The domain layer must have zero framework/DB imports.\""}, {"text": "E2: Identifies that the toRow() row-mapping method lives inside the domain entity and should move to an adapter-level mapper", "passed": true, "evidence": "\"Mapping to a persistence row happens inside the domain entity... row mapping is an adapter responsibility.\""}, {"text": "E3: Proposes a concrete fix: the entity depends only on primitive/domain types, and mapping to $inferInsert/$inferSelect happens in a separate mapper", "passed": true, "evidence": "Adds modules/billing/adapters/db/invoice.mapper.ts with toDomain/toRow using $inferSelect/$inferInsert, entity stripped of the Drizzle import."}, {"text": "E4: Provides corrected code implementing the fix, not just a description of the problem", "passed": true, "evidence": "Full corrected entity, mapper, repository, and port code blocks provided."}], "summary": {"passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0}, "timing": {"executor_duration_seconds": 165.1}}}, {"id": "eval-1-domain-importing-infra-without_skill", "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/domain/invoice.entity.ts\nimport { invoicesTable } from '../../../db/schema/invoices.js';\n\nexport type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';\n\nexport class Invoice {\n  constructor(\n    readonly id: string,\n    readonly workspaceId: string,\n    private amountCents: number,\n    private status: InvoiceStatus,\n  ) {}\n\n  markPaid(): void {\n    if (this.status === 'void') {\n      throw new Error('Cannot mark a void invoice as paid');\n    }\n    this.status = 'paid';\n  }\n\n  toRow(): typeof invoicesTable.$inferInsert {\n    return {\n      id: this.id,\n      workspaceId: this.workspaceId,\n      amountCents: this.amountCents,\n      status: this.status,\n    };\n  }\n\n  get amount(): number {\n    return this.amountCents / 100;\n  }\n}\n```", "eval_id": 1, "outputs": [{"name": "answer.md", "type": "text", "content": "# Review: `modules/billing/domain/invoice.entity.ts`\n\n## What's wrong\n\n**1. Domain entity imports from the infrastructure/persistence layer (the core violation).**\n\n```ts\nimport { invoicesTable } from '../../../db/schema/invoices.js';\n```\n\n`Invoice` lives in `domain/` \u2014 this should be pure business logic with zero knowledge of how it's stored. Importing `invoicesTable` (a Drizzle schema, i.e. an infrastructure concern) pulls the dependency arrow backwards: `domain \u2192 infrastructure`. In an onion/clean architecture, dependencies must always point *inward* (infrastructure depends on domain, never the reverse). This single import means:\n\n- The domain layer can no longer be tested or reasoned about without the DB schema in scope.\n- Changing a column name/type in the Drizzle schema can break domain code that has nothing to do with persistence.\n- The entity can't be reused with a different persistence mechanism (a different ORM, an in-memory store for tests, an API-backed repository, etc.) without editing domain code.\n\n**2. `toRow()` bakes a persistence-shaped method into the entity.**\n\n`toRow(): typeof invoicesTable.$inferInsert` is a mapper responsibility, not a domain responsibility. Mapping between the domain model and a DB row shape belongs in the infrastructure/repository layer (e.g. an `InvoiceMapper` or inside the Drizzle repository adapter). The entity shouldn't need to know the row's field names or that `$inferInsert` even exists.\n\n**3. No invariant enforced on `amountCents`.**\n\nThe constructor accepts any number, including negative or non-integer values, with no validation. A domain entity should protect its own invariants (e.g. \"an invoice amount cannot be negative\") rather than trusting callers.\n\n**4. No way for infrastructure to read the entity's state without new getters.**\n\nBecause `amountCents` and `status` are private with only a derived `amount` getter and no status getter, an external mapper (once correctly moved to infra) has no way to read the raw persisted fields back out. The entity needs explicit read accessors so a mapper can be written outside the class.\n\n## Corrected version\n\nMove the mapping to an infrastructure-layer mapper/repository, and strip the domain entity down to pure business logic with basic invariant protection and read accessors.\n\n```ts\n// modules/billing/domain/invoice.entity.ts\n// No infra imports here \u2014 domain layer is self-contained.\n\nexport type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';\n\nexport class Invoice {\n  constructor(\n    readonly id: string,\n    readonly workspaceId: string,\n    private amountCents: number,\n    private status: InvoiceStatus,\n  ) {\n    if (!Number.isInteger(amountCents) || amountCents < 0) {\n      throw new Error('Invoice amount must be a non-negative integer number of cents');\n    }\n  }\n\n  markPaid(): void {\n    if (this.status === 'void') {\n      throw new Error('Cannot mark a void invoice as paid');\n    }\n    this.status = 'paid';\n  }\n\n  /** Amount in major currency units (e.g. dollars), derived for display/business logic. */\n  get amount(): number {\n    return this.amountCents / 100;\n  }\n\n  /** Raw stored amount, for mappers/repositories outside the domain layer. */\n  get amountInCents(): number {\n    return this.amountCents;\n  }\n\n  get invoiceStatus(): InvoiceStatus {\n    return this.status;\n  }\n}\n```\n\n```ts\n// modules/billing/infrastructure/invoice.mapper.ts\n// Infrastructure layer \u2014 allowed to depend on both domain and the DB schema.\nimport type { invoicesTable } from '../../../db/schema/invoices.js';\nimport { Invoice, type InvoiceStatus } from '../domain/invoice.entity.js';\n\nexport function toInvoiceRow(invoice: Invoice): typeof invoicesTable.$inferInsert {\n  return {\n    id: invoice.id,\n    workspaceId: invoice.workspaceId,\n    amountCents: invoice.amountInCents,\n    status: invoice.invoiceStatus,\n  };\n}\n\nexport function toInvoiceEntity(row: typeof invoicesTable.$inferSelect): Invoice {\n  return new Invoice(row.id, row.workspaceId, row.amountCents, row.status as InvoiceStatus);\n}\n```\n\n## Why this fixes it\n\n- The dependency rule is restored: `domain/invoice.entity.ts` has no imports from `db/`, so it can be unit-tested, moved, or reused without ever touching Drizzle or a database connection.\n- Persistence mapping (`toInvoiceRow` / `toInvoiceEntity`) now lives in the infrastructure layer, which is the correct place for code that's allowed to know about both the domain model and the schema.\n- The entity gains a constructor invariant, so an `Invoice` can never exist in an invalid state (negative/non-integer cents).\n- Read accessors (`amountInCents`, `invoiceStatus`) give infrastructure code a clean, explicit way to read state for mapping, without exposing mutable fields or reintroducing the schema import into the entity.\n"}], "grading": {"expectations": [{"text": "E1: Identifies that the domain entity imports the Drizzle table/schema directly, violating inward-only dependency direction", "passed": true, "evidence": "\"Domain entity imports from the infrastructure/persistence layer (the core violation)... pulls the dependency arrow backwards: domain -> infrastructure.\""}, {"text": "E2: Identifies that the toRow() row-mapping method lives inside the domain entity and should move to an adapter-level mapper", "passed": true, "evidence": "\"toRow()... is a mapper responsibility, not a domain responsibility... belongs in the infrastructure/repository layer.\""}, {"text": "E3: Proposes a concrete fix: the entity depends only on primitive/domain types, and mapping to $inferInsert/$inferSelect happens in a separate mapper", "passed": true, "evidence": "Adds modules/billing/infrastructure/invoice.mapper.ts with toInvoiceRow/toInvoiceEntity using $inferInsert/$inferSelect; entity loses the Drizzle import."}, {"text": "E4: Provides corrected code implementing the fix, not just a description of the problem", "passed": true, "evidence": "Full corrected entity (with added constructor invariant) and mapper code blocks provided."}], "summary": {"passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0}, "timing": {"executor_duration_seconds": 164.8}, "eval_feedback": {"suggestions": [{"reason": "This run also added an unrequested constructor invariant (amountCents must be a non-negative integer) and read accessors not asked for \u2014 reasonable extra value, but shows the baseline sometimes does more unprompted hardening than the with-skill run on the same fixture. Not a problem for grading, just a pattern worth watching across more cases."}], "overall": "No suggestions on the assertions themselves \u2014 both configs are saturated on this eval; see the cross-eval note about eval-1/2/3 not discriminating."}}}, {"id": "eval-2-use-case-instantiates-adapter-with_skill", "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/application/issue-invoice.use-case.ts\nimport { PostgresInvoiceRepository } from '../adapters/db/postgres-invoice.repository.js';\nimport type { Db } from '../../../db/client.js';\nimport { Invoice } from '../domain/invoice.entity.js';\n\nexport interface IssueInvoiceCommand {\n  workspaceId: string;\n  amountCents: number;\n}\n\nexport class IssueInvoiceUseCase {\n  private repo: PostgresInvoiceRepository;\n\n  constructor(db: Db) {\n    this.repo = new PostgresInvoiceRepository(db);\n  }\n\n  async execute(cmd: IssueInvoiceCommand): Promise<string> {\n    const invoice = new Invoice(crypto.randomUUID(), cmd.workspaceId, cmd.amountCents, 'draft');\n    await this.repo.save(invoice);\n    return invoice.id;\n  }\n}\n```", "eval_id": 2, "outputs": [{"name": "answer.md", "type": "text", "content": "# Review: `modules/billing/application/issue-invoice.use-case.ts`\n\n## What's wrong\n\nThis file lives in the **application** layer but violates the dependency rule (Onion Architecture skill, Step 2 & Step 3) in two related ways:\n\n1. **Use case imports a concrete adapter, not a port.**\n   ```ts\n   import { PostgresInvoiceRepository } from '../adapters/db/postgres-invoice.repository.js';\n   ```\n   This is an outward import \u2014 application depending on infrastructure. It's the exact BAD example from the skill:\n   > `// BAD \u2014 use case imports a concrete adapter (outward)`\n   > `import { PostgresUserRepository } from '../../adapters/db/postgres-user.repository'`\n\n   There is no `InvoiceRepository` port in `domain/` for the use case to depend on instead \u2014 that's the root cause. Fix requires adding the missing port interface, not just swapping an import.\n\n2. **The adapter is instantiated inside the use case.**\n   ```ts\n   constructor(db: Db) {\n     this.repo = new PostgresInvoiceRepository(db);\n   }\n   ```\n   This is the exact BAD example from Step 3:\n   > `// BAD \u2014 adapter instantiated inside the use case`\n   > `class CreateUserUseCase { private repo = new PostgresUserRepository(db) // breaks DI, breaks tests }`\n\n   Consequence: you can't unit-test `IssueInvoiceUseCase` without a real Postgres `Db` instance, because the class hard-wires its own dependency instead of receiving it. Wiring belongs in the composition root (`server/src/platform/container.ts`), not inside the class.\n\n3. **Knock-on effect:** because the use case takes `db: Db` in its constructor, it also imports the infra type `Db` from `../../../db/client.js`. Once the repository is injected as a port, this import disappears entirely \u2014 the use case no longer needs to know Postgres/Drizzle exists.\n\n4. **Missing pieces required by the skill's \"Expected output\" shape:** a `domain/invoice-repository.port.ts` interface, and (per Step 5) a mock adapter in `server/src/adapters/mocks.ts` so the use case can be unit-tested. The adapter class itself should implement that port explicitly.\n\n## Corrected version\n\n**`modules/billing/domain/invoice-repository.port.ts`** (new \u2014 the missing port)\n```ts\nimport type { Invoice } from './invoice.entity.js';\n\nexport interface InvoiceRepository {\n  save(invoice: Invoice): Promise<void>;\n}\n```\n\n**`modules/billing/application/issue-invoice.use-case.ts`**\n```ts\nimport type { InvoiceRepository } from '../domain/invoice-repository.port.js';\nimport { Invoice } from '../domain/invoice.entity.js';\n\nexport interface IssueInvoiceCommand {\n  workspaceId: string;\n  amountCents: number;\n}\n\nexport class IssueInvoiceUseCase {\n  constructor(private readonly invoices: InvoiceRepository) {} // port, injected \u2014 not constructed here\n\n  async execute(cmd: IssueInvoiceCommand): Promise<string> {\n    const invoice = new Invoice(crypto.randomUUID(), cmd.workspaceId, cmd.amountCents, 'draft');\n    await this.invoices.save(invoice);\n    return invoice.id;\n  }\n}\n```\n\n**`modules/billing/adapters/db/postgres-invoice.repository.ts`** (unchanged in behavior, now declares it implements the port)\n```ts\nimport type { Db } from '../../../../db/client.js';\nimport type { InvoiceRepository } from '../../domain/invoice-repository.port.js';\nimport type { Invoice } from '../../domain/invoice.entity.js';\nimport { toRow } from './invoice.mapper.js';\nimport { invoicesTable } from './invoice.schema.js';\n\nexport class PostgresInvoiceRepository implements InvoiceRepository {\n  constructor(private readonly db: Db) {}\n\n  async save(invoice: Invoice): Promise<void> {\n    await this.db.insert(invoicesTable).values(toRow(invoice));\n  }\n}\n```\n\n**Composition root \u2014 `server/src/platform/container.ts`** (wiring moves here, per Step 3)\n```ts\nconst invoiceRepo = new PostgresInvoiceRepository(db);\nconst issueInvoice = new IssueInvoiceUseCase(invoiceRepo);\n```\n\n**Test mock \u2014 `server/src/adapters/mocks.ts`** (per Step 5, so the use case is unit-testable without Postgres)\n```ts\nexport const mockInvoiceRepository: InvoiceRepository = {\n  save: vi.fn(),\n};\n```\n\n## Why this fixes it\n\n- The use case now only imports `domain/` types and a port interface \u2014 zero framework/DB imports, satisfying the dependency rule (dependencies point inward only).\n- `IssueInvoiceUseCase` can be unit-tested with `mockInvoiceRepository`, no real `Db`/Postgres connection required.\n- Swapping persistence (e.g. moving off Postgres) means writing a new adapter that implements `InvoiceRepository` \u2014 zero changes to the use case.\n- Wiring is centralized in the composition root, matching every other module in this codebase (`server/src/platform/container.ts` is the reference).\n"}], "grading": {"expectations": [{"text": "F1: Identifies that the use case constructs the concrete PostgresInvoiceRepository itself instead of receiving it via constructor injection", "passed": true, "evidence": "\"The adapter is instantiated inside the use case... constructor(db: Db) { this.repo = new PostgresInvoiceRepository(db); }\" flagged as the exact BAD example from the skill's Step 3."}, {"text": "F2: Explains the concrete downside: the use case can't be unit-tested without a real DB / breaks DI", "passed": true, "evidence": "\"Consequence: you can't unit-test IssueInvoiceUseCase without a real Postgres Db instance.\""}, {"text": "F3: Proposes the use case depend on a port/interface type, injected via the constructor", "passed": true, "evidence": "Corrected IssueInvoiceUseCase: \"constructor(private readonly invoices: InvoiceRepository) {}\" with a new domain/invoice-repository.port.ts interface."}, {"text": "F4: Proposes wiring the concrete adapter at the composition root (container.ts) rather than inside the use case", "passed": true, "evidence": "\"Composition root \u2014 server/src/platform/container.ts (wiring moves here, per Step 3)\" with explicit wiring snippet."}], "summary": {"passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0}, "timing": {"executor_duration_seconds": 157.0}}}, {"id": "eval-2-use-case-instantiates-adapter-without_skill", "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/application/issue-invoice.use-case.ts\nimport { PostgresInvoiceRepository } from '../adapters/db/postgres-invoice.repository.js';\nimport type { Db } from '../../../db/client.js';\nimport { Invoice } from '../domain/invoice.entity.js';\n\nexport interface IssueInvoiceCommand {\n  workspaceId: string;\n  amountCents: number;\n}\n\nexport class IssueInvoiceUseCase {\n  private repo: PostgresInvoiceRepository;\n\n  constructor(db: Db) {\n    this.repo = new PostgresInvoiceRepository(db);\n  }\n\n  async execute(cmd: IssueInvoiceCommand): Promise<string> {\n    const invoice = new Invoice(crypto.randomUUID(), cmd.workspaceId, cmd.amountCents, 'draft');\n    await this.repo.save(invoice);\n    return invoice.id;\n  }\n}\n```", "eval_id": 2, "outputs": [{"name": "answer.md", "type": "text", "content": "# Review: `issue-invoice.use-case.ts`\n\n## What's wrong\n\n1. **Application layer instantiates a concrete infrastructure adapter (dependency rule violation).**\n   `IssueInvoiceUseCase` imports `PostgresInvoiceRepository` from `../adapters/db/...` and does `new PostgresInvoiceRepository(db)` inside its own constructor. In an onion/hexagonal architecture, dependencies must point *inward*: the application layer should depend only on an abstraction (a port/interface) that it defines or that lives in the domain layer. The concrete Postgres adapter is an outer-ring detail and must never be imported by an inner ring.\n\n2. **The use case is coupled to the persistence technology (`Db` client) instead of a port.**\n   The constructor takes `Db` \u2014 a Postgres/Drizzle-specific type from `../../../db/client.js`. This means the use case's public contract leaks infrastructure. Swapping Postgres for anything else (or writing a fast unit test with an in-memory fake) requires touching the use case itself.\n\n3. **No inversion of control / composition root.**\n   Because the use case builds its own dependency, nothing outside can inject a test double or an alternate implementation. Wiring (deciding \"use Postgres\") is a composition-root concern (e.g. a DI container, factory, or route handler), not something the use case should decide for itself.\n\n4. **Minor: primitive-obsessed invoice construction.**\n   `new Invoice(id, workspaceId, amountCents, 'draft')` passes a bare string literal for status and exposes a wide public constructor. A named factory (e.g. `Invoice.draft(...)`) better encapsulates the invariant \"new invoices start in draft\" and avoids typo-prone magic strings at every call site. This is secondary to the layering violation but worth fixing while touching the file.\n\nThe fix: define an `InvoiceRepository` **port** (interface) that the application layer owns, have `PostgresInvoiceRepository` **implement** that port, and inject the port into the use case from the composition root. The use case then only ever talks to the abstraction.\n\n## Corrected version\n\n```ts\n// modules/billing/application/ports/invoice-repository.port.ts\nimport type { Invoice } from '../../domain/invoice.entity.js';\n\nexport interface InvoiceRepository {\n  save(invoice: Invoice): Promise<void>;\n}\n```\n\n```ts\n// modules/billing/domain/invoice.entity.ts\nexport type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'void';\n\nexport class Invoice {\n  private constructor(\n    public readonly id: string,\n    public readonly workspaceId: string,\n    public readonly amountCents: number,\n    public readonly status: InvoiceStatus,\n  ) {}\n\n  static draft(id: string, workspaceId: string, amountCents: number): Invoice {\n    if (amountCents <= 0) {\n      throw new Error('Invoice amount must be positive');\n    }\n    return new Invoice(id, workspaceId, amountCents, 'draft');\n  }\n}\n```\n\n```ts\n// modules/billing/application/issue-invoice.use-case.ts\nimport type { InvoiceRepository } from './ports/invoice-repository.port.js';\nimport { Invoice } from '../domain/invoice.entity.js';\n\nexport interface IssueInvoiceCommand {\n  workspaceId: string;\n  amountCents: number;\n}\n\nexport class IssueInvoiceUseCase {\n  constructor(private readonly repo: InvoiceRepository) {}\n\n  async execute(cmd: IssueInvoiceCommand): Promise<string> {\n    const invoice = Invoice.draft(crypto.randomUUID(), cmd.workspaceId, cmd.amountCents);\n    await this.repo.save(invoice);\n    return invoice.id;\n  }\n}\n```\n\n```ts\n// modules/billing/adapters/db/postgres-invoice.repository.ts\nimport type { Db } from '../../../../db/client.js';\nimport type { InvoiceRepository } from '../../application/ports/invoice-repository.port.js';\nimport type { Invoice } from '../../domain/invoice.entity.js';\n\nexport class PostgresInvoiceRepository implements InvoiceRepository {\n  constructor(private readonly db: Db) {}\n\n  async save(invoice: Invoice): Promise<void> {\n    // ... Drizzle insert against `db`\n  }\n}\n```\n\n```ts\n// modules/billing/composition-root.ts  (or wherever the module wires its DI)\nimport type { Db } from '../../db/client.js';\nimport { PostgresInvoiceRepository } from './adapters/db/postgres-invoice.repository.js';\nimport { IssueInvoiceUseCase } from './application/issue-invoice.use-case.js';\n\nexport function createIssueInvoiceUseCase(db: Db): IssueInvoiceUseCase {\n  const repo = new PostgresInvoiceRepository(db);\n  return new IssueInvoiceUseCase(repo);\n}\n```\n\n## Why this fixes it\n\n- The use case now imports only `InvoiceRepository` (an abstraction it owns) and the domain entity \u2014 both inner rings. It no longer knows Postgres, Drizzle, or `Db` exist.\n- `PostgresInvoiceRepository` is still the only place that talks to the database; it now formally implements the port, so the compiler enforces the contract.\n- Wiring (`new PostgresInvoiceRepository(db)`) moved to a composition root / factory, matching the project's DI contract (\"adapters are injected, never instantiated in services\").\n- Tests can inject an in-memory `InvoiceRepository` fake without touching Postgres, and swapping persistence technology later never requires changing `IssueInvoiceUseCase`.\n- `Invoice.draft(...)` centralizes the \"new invoices start as draft\" invariant and removes the magic string from the call site.\n"}], "grading": {"expectations": [{"text": "F1: Identifies that the use case constructs the concrete PostgresInvoiceRepository itself instead of receiving it via constructor injection", "passed": true, "evidence": "\"Application layer instantiates a concrete infrastructure adapter... does new PostgresInvoiceRepository(db) inside its own constructor.\""}, {"text": "F2: Explains the concrete downside: the use case can't be unit-tested without a real DB / breaks DI", "passed": true, "evidence": "\"writing a fast unit test with an in-memory fake requires touching the use case itself\" and \"nothing outside can inject a test double or an alternate implementation.\""}, {"text": "F3: Proposes the use case depend on a port/interface type, injected via the constructor", "passed": true, "evidence": "\"constructor(private readonly repo: InvoiceRepository) {}\" with a new ports/invoice-repository.port.ts."}, {"text": "F4: Proposes wiring the concrete adapter at the composition root (container.ts) rather than inside the use case", "passed": true, "evidence": "Provides modules/billing/composition-root.ts with createIssueInvoiceUseCase(db) factory that constructs the adapter once and injects it \u2014 functionally a composition root, though not literally named container.ts."}], "summary": {"passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0}, "timing": {"executor_duration_seconds": 157.6}}}, {"id": "eval-3-controller-bypasses-use-case-with_skill", "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/adapters/http/invoices.routes.ts\nimport type { FastifyInstance } from 'fastify';\nimport type { ZodTypeProvider } from 'fastify-type-provider-zod';\nimport { getContext } from '../../../_shared/context.js';\nimport { PostgresInvoiceRepository } from '../db/postgres-invoice.repository.js';\nimport { IdParams } from '../../../_shared/schemas.js';\n\nexport default async function invoicesRoutes(appBase: FastifyInstance) {\n  const app = appBase.withTypeProvider<ZodTypeProvider>();\n  const repo = new PostgresInvoiceRepository(app.container.db);\n\n  app.get('/invoices/:id', { schema: { params: IdParams } }, async (req) => {\n    const { workspaceId } = await getContext(app.container, req);\n    const row = await repo.findRowById(workspaceId, req.params.id);\n    return row;\n  });\n\n  app.post('/invoices/:id/pay', { schema: { params: IdParams } }, async (req, reply) => {\n    const { workspaceId } = await getContext(app.container, req);\n    const row = await repo.findRowById(workspaceId, req.params.id);\n    if (!row) {\n      reply.status(404);\n      return { error: 'not found' };\n    }\n    await repo.updateStatus(workspaceId, req.params.id, 'paid');\n    reply.status(204);\n  });\n}\n```\n\nFor context, elsewhere in this codebase `Invoice.markPaid()` throws if the invoice status is `'void'`.", "eval_id": 3, "outputs": [{"name": "answer.md", "type": "text", "content": "# Review: `modules/billing/adapters/http/invoices.routes.ts`\n\n## What's wrong\n\n1. **Controller calls the repository directly \u2014 no use case in between (dependency-rule / layering violation).**\n   The route handlers call `repo.findRowById(...)` and `repo.updateStatus(...)` straight from the HTTP adapter. Per the skill's anti-pattern table: *\"Controller calls repo directly \u2192 Add a use case in between.\"* There is no `application/` layer here at all, so the HTTP adapter is doing orchestration and business-rule enforcement that belongs one layer in.\n\n2. **Business invariant is bypassed entirely \u2014 this is the critical bug.**\n   The codebase's domain rule is `Invoice.markPaid()` throws if the invoice is `'void'`. But the pay route never constructs or touches an `Invoice` domain object \u2014 it calls `repo.updateStatus(workspaceId, id, 'paid')` directly, which is a raw persistence-layer write. A void invoice can be marked `'paid'` through this endpoint with **no invariant check whatsoever**, because the domain entity that owns the rule is never invoked. This is exactly the failure mode the onion architecture guards against: domain rules only protect you if every path to mutating state actually goes through the domain layer.\n\n3. **Adapter instantiated inside the route file instead of the composition root.**\n   `const repo = new PostgresInvoiceRepository(app.container.db)` is built inline in the routes file. Per Step 3, adapters should be wired once in `server/src/platform/container.ts` and injected \u2014 building it here means routes can't be unit-tested without a real DB-shaped container, and there's no single place to swap the implementation.\n\n4. **HTTP adapter imports a concrete adapter class across adapters (`db` \u2192 `http`), not a port.**\n   `import { PostgresInvoiceRepository } from '../db/postgres-invoice.repository.js'` \u2014 the route depends on a concrete Postgres implementation instead of an `InvoiceRepository` port. Per Step 2, dependencies must point inward only; a sibling adapter importing another adapter's concrete class (instead of everyone depending on a port interface owned by the domain) is an outward/sideways dependency that defeats DI and testability.\n\n5. **Raw DB row returned straight from the route \u2014 no boundary mapping.**\n   `return row;` on the GET route ships whatever shape `findRowById` returns (a Drizzle row) directly to the HTTP client. Per Step 4, mapping between persistence rows and domain/response types must happen at the boundary, never leak past the adapter. Today this means an internal column naming/shape change silently becomes an API contract change.\n\n## Corrected version\n\nThe fix adds an `application/` layer with two use cases that own orchestration and are the only things allowed to touch the domain entity's invariant, a `domain/` port so adapters depend inward, and keeps the HTTP layer as pure \"validate \u2192 call use case \u2192 map response.\"\n\n```ts\n// modules/billing/domain/invoice-repository.port.ts\nimport type { Invoice } from './invoice.entity.js';\n\nexport interface InvoiceRepository {\n  findById(workspaceId: string, id: string): Promise<Invoice | null>;\n  save(invoice: Invoice): Promise<void>;\n}\n```\n\n```ts\n// modules/billing/application/get-invoice.use-case.ts\nimport type { InvoiceRepository } from '../domain/invoice-repository.port.js';\n\nexport class InvoiceNotFoundError extends Error {}\n\nexport class GetInvoiceUseCase {\n  constructor(private readonly invoices: InvoiceRepository) {} // port, not concrete class\n\n  async execute(workspaceId: string, id: string) {\n    const invoice = await this.invoices.findById(workspaceId, id);\n    if (!invoice) throw new InvoiceNotFoundError(id);\n    return invoice;\n  }\n}\n```\n\n```ts\n// modules/billing/application/pay-invoice.use-case.ts\nimport type { InvoiceRepository } from '../domain/invoice-repository.port.js';\n\nexport class InvoiceNotFoundError extends Error {}\n\nexport class PayInvoiceUseCase {\n  constructor(private readonly invoices: InvoiceRepository) {}\n\n  async execute(workspaceId: string, id: string) {\n    const invoice = await this.invoices.findById(workspaceId, id);\n    if (!invoice) throw new InvoiceNotFoundError(id);\n\n    invoice.markPaid(); // domain rule enforced here \u2014 throws on void invoices\n    await this.invoices.save(invoice);\n\n    return invoice;\n  }\n}\n```\n\n```ts\n// modules/billing/adapters/db/postgres-invoice.repository.ts\nimport type { InvoiceRepository } from '../../domain/invoice-repository.port.js';\nimport type { Invoice } from '../../domain/invoice.entity.js';\nimport { toDomain, toRow } from './invoice.mapper.js';\n\nexport class PostgresInvoiceRepository implements InvoiceRepository {\n  constructor(private readonly db: Database) {}\n\n  async findById(workspaceId: string, id: string): Promise<Invoice | null> {\n    const row = await this.db.query.invoices.findFirst({\n      where: (t, { eq, and }) => and(eq(t.workspaceId, workspaceId), eq(t.id, id)),\n    });\n    return row ? toDomain(row) : null;\n  }\n\n  async save(invoice: Invoice): Promise<void> {\n    await this.db.update(invoicesTable)\n      .set(toRow(invoice))\n      .where(and(eq(invoicesTable.workspaceId, invoice.workspaceId), eq(invoicesTable.id, invoice.id)));\n  }\n}\n```\n\n```ts\n// modules/billing/adapters/http/invoices.routes.ts\nimport type { FastifyInstance } from 'fastify';\nimport type { ZodTypeProvider } from 'fastify-type-provider-zod';\nimport { getContext } from '../../../_shared/context.js';\nimport { IdParams } from '../../../_shared/schemas.js';\nimport { InvoiceNotFoundError } from '../../application/get-invoice.use-case.js';\nimport { toInvoiceResponse } from './invoice.presenter.js';\n\nexport default async function invoicesRoutes(appBase: FastifyInstance) {\n  const app = appBase.withTypeProvider<ZodTypeProvider>();\n  // Use cases are wired once in server/src/platform/container.ts and\n  // exposed on app.container \u2014 the route never builds an adapter itself.\n  const { getInvoice, payInvoice } = app.container;\n\n  app.get('/invoices/:id', { schema: { params: IdParams } }, async (req, reply) => {\n    const { workspaceId } = await getContext(app.container, req);\n    try {\n      const invoice = await getInvoice.execute(workspaceId, req.params.id);\n      return toInvoiceResponse(invoice); // map domain -> response DTO at the boundary\n    } catch (err) {\n      if (err instanceof InvoiceNotFoundError) {\n        reply.status(404);\n        return { error: 'not found' };\n      }\n      throw err;\n    }\n  });\n\n  app.post('/invoices/:id/pay', { schema: { params: IdParams } }, async (req, reply) => {\n    const { workspaceId } = await getContext(app.container, req);\n    try {\n      await payInvoice.execute(workspaceId, req.params.id);\n      reply.status(204);\n    } catch (err) {\n      if (err instanceof InvoiceNotFoundError) {\n        reply.status(404);\n        return { error: 'not found' };\n      }\n      // e.g. domain throws \"cannot pay a void invoice\" \u2014 surface as 409/422, not a silent write\n      reply.status(409);\n      return { error: (err as Error).message };\n    }\n  });\n}\n```\n\n```ts\n// server/src/platform/container.ts (composition root \u2014 relevant excerpt)\nconst invoiceRepo = new PostgresInvoiceRepository(db);\nconst getInvoice = new GetInvoiceUseCase(invoiceRepo);\nconst payInvoice = new PayInvoiceUseCase(invoiceRepo);\n// container.getInvoice = getInvoice; container.payInvoice = payInvoice;\n```\n\n## Why this matters here specifically\n\nThe `Invoice.markPaid()` invariant (\"throws if status is `'void'`\") only exists to be *enforced*. In the original code it was dead code from this endpoint's point of view \u2014 the route never loads an `Invoice`, never calls `markPaid()`, and writes `'paid'` straight to the row. Routing the mutation through `PayInvoiceUseCase` (which loads the domain entity, calls `markPaid()`, then persists via `save()`) is what actually makes the invariant apply to this HTTP path. Everything else (use case, port, composition root wiring, boundary mapping) is what the onion architecture skill prescribes to make that possible and testable \u2014 the use cases can now be unit-tested with a mock `InvoiceRepository` (`server/src/adapters/mocks.ts`) with no real DB, and the concrete Postgres class is never referenced outside the container and its own adapter.\n"}], "grading": {"expectations": [{"text": "G1: Identifies that the route handler calls the repository directly instead of going through an application/use-case layer", "passed": true, "evidence": "\"Controller calls the repository directly \u2014 no use case in between... There is no application/ layer here at all.\""}, {"text": "G2: Identifies that the void-invoice invariant (Invoice.markPaid()) is bypassed because the route updates the row directly, i.e. flags the resulting reachable bug, not just the structural smell", "passed": true, "evidence": "\"the pay route never constructs or touches an Invoice domain object... A void invoice can be marked 'paid' through this endpoint with no invariant check whatsoever\" \u2014 called out as 'the critical bug.'"}, {"text": "G3: Identifies that the raw DB row is returned directly from the GET endpoint instead of a mapped DTO/domain-shaped response", "passed": true, "evidence": "\"Raw DB row returned straight from the route \u2014 no boundary mapping... 'return row;' ... ships whatever shape findRowById returns... directly to the HTTP client.\""}, {"text": "G4: Proposes concrete restructuring: a use case that the route calls, with domain rule enforcement and mapping at the boundary", "passed": true, "evidence": "Adds GetInvoiceUseCase/PayInvoiceUseCase; PayInvoiceUseCase calls invoice.markPaid() before save(); route reduced to validate/call-use-case/map via toInvoiceResponse."}], "summary": {"passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0}, "timing": {"executor_duration_seconds": 164.2}}}, {"id": "eval-3-controller-bypasses-use-case-without_skill", "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/adapters/http/invoices.routes.ts\nimport type { FastifyInstance } from 'fastify';\nimport type { ZodTypeProvider } from 'fastify-type-provider-zod';\nimport { getContext } from '../../../_shared/context.js';\nimport { PostgresInvoiceRepository } from '../db/postgres-invoice.repository.js';\nimport { IdParams } from '../../../_shared/schemas.js';\n\nexport default async function invoicesRoutes(appBase: FastifyInstance) {\n  const app = appBase.withTypeProvider<ZodTypeProvider>();\n  const repo = new PostgresInvoiceRepository(app.container.db);\n\n  app.get('/invoices/:id', { schema: { params: IdParams } }, async (req) => {\n    const { workspaceId } = await getContext(app.container, req);\n    const row = await repo.findRowById(workspaceId, req.params.id);\n    return row;\n  });\n\n  app.post('/invoices/:id/pay', { schema: { params: IdParams } }, async (req, reply) => {\n    const { workspaceId } = await getContext(app.container, req);\n    const row = await repo.findRowById(workspaceId, req.params.id);\n    if (!row) {\n      reply.status(404);\n      return { error: 'not found' };\n    }\n    await repo.updateStatus(workspaceId, req.params.id, 'paid');\n    reply.status(204);\n  });\n}\n```\n\nFor context, elsewhere in this codebase `Invoice.markPaid()` throws if the invoice status is `'void'`.", "eval_id": 3, "outputs": [{"name": "answer.md", "type": "text", "content": "# Review: `invoices.routes.ts`\n\n## What's wrong\n\n### 1. The controller bypasses the domain/use-case layer entirely (critical)\n\nThe route handler talks straight to the repository and mutates persistence state itself:\n\n```ts\nawait repo.updateStatus(workspaceId, req.params.id, 'paid');\n```\n\nThere is no domain object in this path at all. The codebase already has `Invoice.markPaid()`, which enforces the invariant that a `'void'` invoice cannot be paid. Because the HTTP adapter never loads an `Invoice` entity and never calls `markPaid()`, that invariant is silently skipped. A client can `POST /invoices/:id/pay` on a void invoice and the row will happily be flipped to `'paid'` \u2014 the one business rule this endpoint exists to protect is unreachable code.\n\nThis is the classic onion-architecture violation: an outer layer (HTTP adapter) reaching past the application/domain layer directly into another outer layer (the DB adapter), instead of the dependency arrow pointing inward through a use case.\n\n### 2. Adapter instantiates a concrete infrastructure class itself\n\n```ts\nconst repo = new PostgresInvoiceRepository(app.container.db);\n```\n\nPer this repo's DI contract, adapters are injected, never constructed ad hoc inside route files. Doing `new PostgresInvoiceRepository(...)` here:\n- hardcodes the route to one concrete implementation (can't substitute a mock/port in tests without reaching into the DB),\n- duplicates wiring that should live once in the composition root/container,\n- means the route module owns a DB handle instance for the lifetime of the process instead of resolving it from the container per the existing convention.\n\n### 3. Repository is modeled as row/column CRUD, not an aggregate store\n\n`findRowById` / `updateStatus` expose persistence shape (rows, raw status strings) directly to the HTTP layer. There's no seam for `Invoice` as a domain entity with behavior \u2014 the \"repository\" is really just a thin SQL wrapper, which is what pushed the `markPaid()` invariant out of the domain and into (missing) ad-hoc route logic.\n\n### 4. No error mapping for domain rule violations\n\nBecause the domain call is missing, there's also no handling for what should happen when `markPaid()` throws (e.g., paying a void invoice). The correct behavior is a `409 Conflict` (or `422`), not a silent 500 or \u2014 worse \u2014 a silently succeeding write.\n\n### 5. Raw persistence row returned from GET\n\n`return row;` on the GET handler leaks the DB row shape straight into the API response, coupling the wire contract to the table schema instead of to a domain/DTO shape. It also returns `undefined`/`null` with an implicit 200 when the invoice doesn't exist, instead of a 404 \u2014 inconsistent with the `pay` handler, which does check.\n\n## Fix\n\nIntroduce an application layer between the HTTP adapter and the persistence adapter. The repository port speaks in terms of the `Invoice` domain entity; a use case loads it, invokes its behavior, and saves it back. The route becomes a thin translator: HTTP in, domain errors mapped to HTTP status codes, DTO out. The container (composition root) constructs the repository and use cases once \u2014 the route only resolves them.\n\n```ts\n// modules/billing/domain/invoice.ts\nexport class InvoiceVoidError extends Error {\n  constructor(invoiceId: string) {\n    super(`Invoice ${invoiceId} is void and cannot be paid`);\n    this.name = 'InvoiceVoidError';\n  }\n}\n\nexport class Invoice {\n  constructor(\n    public readonly id: string,\n    public readonly workspaceId: string,\n    private status: 'draft' | 'open' | 'paid' | 'void',\n  ) {}\n\n  get currentStatus() {\n    return this.status;\n  }\n\n  markPaid(): void {\n    if (this.status === 'void') {\n      throw new InvoiceVoidError(this.id);\n    }\n    this.status = 'paid';\n  }\n}\n```\n\n```ts\n// modules/billing/application/ports/invoice.repository.ts\nimport type { Invoice } from '../../domain/invoice.js';\n\nexport interface InvoiceRepository {\n  findById(workspaceId: string, id: string): Promise<Invoice | null>;\n  save(invoice: Invoice): Promise<void>;\n}\n```\n\n```ts\n// modules/billing/application/use-cases/pay-invoice.use-case.ts\nimport type { InvoiceRepository } from '../ports/invoice.repository.js';\n\nexport class InvoiceNotFoundError extends Error {}\n\nexport class PayInvoiceUseCase {\n  constructor(private readonly invoices: InvoiceRepository) {}\n\n  async execute(workspaceId: string, invoiceId: string): Promise<void> {\n    const invoice = await this.invoices.findById(workspaceId, invoiceId);\n    if (!invoice) {\n      throw new InvoiceNotFoundError(invoiceId);\n    }\n    invoice.markPaid(); // domain invariant enforced here, not in the route\n    await this.invoices.save(invoice);\n  }\n}\n```\n\n```ts\n// modules/billing/application/use-cases/get-invoice.use-case.ts\nimport type { Invoice } from '../../domain/invoice.js';\nimport type { InvoiceRepository } from '../ports/invoice.repository.js';\n\nexport class GetInvoiceUseCase {\n  constructor(private readonly invoices: InvoiceRepository) {}\n\n  execute(workspaceId: string, invoiceId: string): Promise<Invoice | null> {\n    return this.invoices.findById(workspaceId, invoiceId);\n  }\n}\n```\n\n`PostgresInvoiceRepository` (in `modules/billing/adapters/db/postgres-invoice.repository.ts`) should implement `InvoiceRepository`, mapping rows to/from `Invoice` in `findById`/`save`, instead of exposing `findRowById`/`updateStatus`. Both the repository and the two use cases are constructed once in the DI container (`app.container.billing.*`), same as every other adapter in this codebase.\n\n```ts\n// modules/billing/adapters/http/invoices.routes.ts\nimport type { FastifyInstance } from 'fastify';\nimport type { ZodTypeProvider } from 'fastify-type-provider-zod';\nimport { getContext } from '../../../_shared/context.js';\nimport { IdParams } from '../../../_shared/schemas.js';\nimport { InvoiceVoidError } from '../../domain/invoice.js';\nimport { InvoiceNotFoundError } from '../../application/use-cases/pay-invoice.use-case.js';\n\nexport default async function invoicesRoutes(appBase: FastifyInstance) {\n  const app = appBase.withTypeProvider<ZodTypeProvider>();\n  // Resolved from the container's composition root \u2014 never constructed here.\n  const { getInvoice, payInvoice } = app.container.billing;\n\n  app.get('/invoices/:id', { schema: { params: IdParams } }, async (req, reply) => {\n    const { workspaceId } = await getContext(app.container, req);\n    const invoice = await getInvoice.execute(workspaceId, req.params.id);\n\n    if (!invoice) {\n      reply.status(404);\n      return { error: 'not found' };\n    }\n\n    return { id: invoice.id, status: invoice.currentStatus };\n  });\n\n  app.post('/invoices/:id/pay', { schema: { params: IdParams } }, async (req, reply) => {\n    const { workspaceId } = await getContext(app.container, req);\n\n    try {\n      await payInvoice.execute(workspaceId, req.params.id);\n    } catch (err) {\n      if (err instanceof InvoiceNotFoundError) {\n        reply.status(404);\n        return { error: 'not found' };\n      }\n      if (err instanceof InvoiceVoidError) {\n        reply.status(409);\n        return { error: 'invoice is void and cannot be paid' };\n      }\n      throw err;\n    }\n\n    reply.status(204);\n  });\n}\n```\n\n## Why this is the correct shape\n\n- The dependency arrow now points inward: HTTP adapter \u2192 application use case \u2192 domain entity \u2190 repository port \u2190 DB adapter. No outer-to-outer shortcut.\n- `Invoice.markPaid()`'s invariant (reject `'void'`) is exercised on every pay request \u2014 it's structurally impossible to skip it now, whereas before it was simply dead code.\n- The route no longer instantiates a concrete infra class; it resolves already-wired dependencies from `app.container`, consistent with this repo's DI contract.\n- Domain errors (`InvoiceVoidError`, `InvoiceNotFoundError`) are translated to the correct HTTP status codes (409, 404) instead of being unhandled or unreachable.\n- The GET response returns a small DTO (`{ id, status }`) instead of a raw DB row, and correctly 404s when the invoice is missing, matching the behavior of the pay endpoint.\n- `getContext`/tenancy scoping is preserved exactly as before \u2014 `workspaceId` still gates every repository call.\n"}], "grading": {"expectations": [{"text": "G1: Identifies that the route handler calls the repository directly instead of going through an application/use-case layer", "passed": true, "evidence": "\"The controller bypasses the domain/use-case layer entirely... an outer layer (HTTP adapter) reaching past the application/domain layer directly into another outer layer (the DB adapter).\""}, {"text": "G2: Identifies that the void-invoice invariant (Invoice.markPaid()) is bypassed because the route updates the row directly, i.e. flags the resulting reachable bug, not just the structural smell", "passed": true, "evidence": "\"Because the HTTP adapter never loads an Invoice entity and never calls markPaid(), that invariant is silently skipped... the one business rule this endpoint exists to protect is unreachable code.\" \u2014 listed as issue #1, critical."}, {"text": "G3: Identifies that the raw DB row is returned directly from the GET endpoint instead of a mapped DTO/domain-shaped response", "passed": true, "evidence": "\"'return row;' on the GET handler leaks the DB row shape straight into the API response, coupling the wire contract to the table schema.\""}, {"text": "G4: Proposes concrete restructuring: a use case that the route calls, with domain rule enforcement and mapping at the boundary", "passed": true, "evidence": "Adds PayInvoiceUseCase (calls invoice.markPaid() then save()) and GetInvoiceUseCase; route resolves both from app.container and maps domain errors (InvoiceVoidError -> 409, InvoiceNotFoundError -> 404)."}], "summary": {"passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0}, "timing": {"executor_duration_seconds": 160.1}, "eval_feedback": {"suggestions": [{"reason": "This run additionally caught that the original GET handler had no 404 for a missing invoice (inconsistent with the pay handler) and fixed it \u2014 a real bug not covered by any assertion. Worth adding an assertion for 404-consistency between the two endpoints if this eval is reused."}], "overall": "Both configs saturated at 4/4; the one asymmetry (missing-invoice 404 on GET) is a good candidate for a new assertion."}}}], "previous_feedback": {}, "previous_outputs": {}, "benchmark": {"metadata": {"skill_name": "onion-architecture", "skill_path": ".claude/skills/onion-architecture", "executor_model": "claude-sonnet-5", "analyzer_model": "claude-sonnet-5", "timestamp": "2026-07-13T10:45:00Z", "evals_run": [0, 1, 2, 3], "runs_per_configuration": 1}, "runs": [{"eval_id": 0, "eval_name": "module-layer-design", "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 6, "failed": 0, "total": 6, "time_seconds": 201.2, "tokens": 80540, "tool_calls": 4, "errors": 0}, "expectations": [{"text": "D1: Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service", "passed": true, "evidence": "domain/application/adapters folders shown for the new module"}, {"text": "D2: The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import", "passed": true, "evidence": "policy + entity are plain TS with zero framework imports"}, {"text": "D3: The application/use-case class depends on a port/interface for persistence, not a concrete adapter class", "passed": true, "evidence": "use case constructor takes port interfaces only"}, {"text": "D4: Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself", "passed": true, "evidence": "explicit container.ts wiring section"}, {"text": "D5: Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary", "passed": true, "evidence": "adapters/db/untested-touch.mapper.ts referenced"}, {"text": "D6: Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB", "passed": true, "evidence": "mocks.ts additions for all three new ports"}], "notes": []}, {"eval_id": 0, "eval_name": "module-layer-design", "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.333, "passed": 2, "failed": 4, "total": 6, "time_seconds": 593.4, "tokens": 117752, "tool_calls": 33, "errors": 0}, "expectations": [{"text": "D1: Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service", "passed": false, "evidence": "deliberate flat rule.ts/service.ts/routes.ts layout, justified by BlastService/BriefService precedent"}, {"text": "D2: The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import", "passed": true, "evidence": "rule.ts is pure, no I/O imports"}, {"text": "D3: The application/use-case class depends on a port/interface for persistence, not a concrete adapter class", "passed": false, "evidence": "CoverageService does `new ReviewRepository(container.db)` inside its own constructor"}, {"text": "D4: Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself", "passed": false, "evidence": "explicit section '7. platform/container.ts \u2014 no change'"}, {"text": "D5: Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary", "passed": false, "evidence": "no mapper introduced; reuses existing jsonb-blob facade methods directly"}, {"text": "D6: Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB", "passed": true, "evidence": "'service.test.ts \u2014 unit test with container.git mocked ... and a mock ReviewRepository/db'"}], "notes": ["Spent 33 tool calls reading server/CLAUDE.md, pull.repo.ts, container.ts, modules/index.ts, and the real BlastService/BriefService code before designing \u2014 caught the repo's 'no new tables' rule and reused the existing pr_brief jsonb-blob convention instead of proposing new columns or a new table.", "Deliberately chose NOT to layer this module, citing that BlastService/BriefService (the closest recent precedent) are flat services, not domain/application/adapters \u2014 a defensible, precedent-grounded call that nonetheless fails 4 of 6 skill-template assertions."]}, {"eval_id": 1, "eval_name": "domain-importing-infra", "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 165.1, "tokens": 72601, "tool_calls": 4, "errors": 0}, "expectations": [{"text": "E1", "passed": true, "evidence": "flags the domain -> infra import explicitly"}, {"text": "E2", "passed": true, "evidence": "flags toRow() living in the entity"}, {"text": "E3", "passed": true, "evidence": "introduces adapters/db/invoice.mapper.ts"}, {"text": "E4", "passed": true, "evidence": "full corrected code provided"}], "notes": []}, {"eval_id": 1, "eval_name": "domain-importing-infra", "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 164.8, "tokens": 67404, "tool_calls": 2, "errors": 0}, "expectations": [{"text": "E1", "passed": true, "evidence": "flags the domain -> infra import explicitly"}, {"text": "E2", "passed": true, "evidence": "flags toRow() living in the entity"}, {"text": "E3", "passed": true, "evidence": "introduces infrastructure/invoice.mapper.ts"}, {"text": "E4", "passed": true, "evidence": "full corrected code provided, plus an unrequested constructor invariant"}], "notes": []}, {"eval_id": 2, "eval_name": "use-case-instantiates-adapter", "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 157.0, "tokens": 69012, "tool_calls": 3, "errors": 0}, "expectations": [{"text": "F1", "passed": true, "evidence": "flags new PostgresInvoiceRepository(db) inside the constructor"}, {"text": "F2", "passed": true, "evidence": "explains it can't be unit-tested without a real DB"}, {"text": "F3", "passed": true, "evidence": "injects InvoiceRepository port via constructor"}, {"text": "F4", "passed": true, "evidence": "explicit container.ts wiring snippet"}], "notes": []}, {"eval_id": 2, "eval_name": "use-case-instantiates-adapter", "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 157.6, "tokens": 67206, "tool_calls": 2, "errors": 0}, "expectations": [{"text": "F1", "passed": true, "evidence": "flags new PostgresInvoiceRepository(db) inside the constructor"}, {"text": "F2", "passed": true, "evidence": "explains DI/testability downside"}, {"text": "F3", "passed": true, "evidence": "injects InvoiceRepository port via constructor"}, {"text": "F4", "passed": true, "evidence": "composition-root.ts factory, functionally equivalent to container.ts"}], "notes": []}, {"eval_id": 3, "eval_name": "controller-bypasses-use-case", "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 164.2, "tokens": 71027, "tool_calls": 3, "errors": 0}, "expectations": [{"text": "G1", "passed": true, "evidence": "flags route calling repo directly"}, {"text": "G2", "passed": true, "evidence": "calls out the void-invoice bypass as 'the critical bug'"}, {"text": "G3", "passed": true, "evidence": "flags raw row returned from GET"}, {"text": "G4", "passed": true, "evidence": "adds GetInvoiceUseCase/PayInvoiceUseCase enforcing markPaid()"}], "notes": []}, {"eval_id": 3, "eval_name": "controller-bypasses-use-case", "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 160.1, "tokens": 69447, "tool_calls": 2, "errors": 0}, "expectations": [{"text": "G1", "passed": true, "evidence": "flags route reaching past the use-case layer into the DB adapter"}, {"text": "G2", "passed": true, "evidence": "'the one business rule this endpoint exists to protect is unreachable code' \u2014 listed as issue #1"}, {"text": "G3", "passed": true, "evidence": "flags raw row leaking from GET"}, {"text": "G4", "passed": true, "evidence": "adds PayInvoiceUseCase/GetInvoiceUseCase with domain-error-to-HTTP mapping"}], "notes": ["Also caught and fixed a missing 404 on the GET endpoint for a nonexistent invoice \u2014 a real bug no assertion in this eval checks for."]}], "run_summary": {"with_skill": {"pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0}, "time_seconds": {"mean": 171.9, "stddev": 19.9, "min": 157.0, "max": 201.2}, "tokens": {"mean": 73295, "stddev": 5048, "min": 69012, "max": 80540}}, "without_skill": {"pass_rate": {"mean": 0.833, "stddev": 0.333, "min": 0.333, "max": 1.0}, "time_seconds": {"mean": 269.0, "stddev": 216.3, "min": 157.6, "max": 593.4}, "tokens": {"mean": 80452, "stddev": 24887, "min": 67206, "max": 117752}}, "delta": {"pass_rate": "+0.17", "time_seconds": "-97.1", "tokens": "-7157"}}, "notes": ["Pooled pass rate: with_skill 18/18 (100%), without_skill 14/18 (78%) \u2014 but this +17pp gap comes entirely from eval-0 (module-layer-design); evals 1-3 (all 'review this fixture' tasks) are saturated 100% in both configurations, exactly like the earlier zod skill benchmark.", "On evals 1-3, the base model already applies the skill's core review checks unprompted: it independently flags domain-to-infra imports, adapter-instantiated-in-use-case, and controller-bypasses-use-case every single time, with no measurable skill lift.", "Eval-0 is the only differentiator, and it cuts against a simple 'skill wins' story: with-skill applied the skill's textbook domain/application/adapters template from memory (4 tool calls, no repo exploration) and passed all 6 assertions. Without-skill spent 33 tool calls actually reading this codebase's real conventions (CLAUDE.md's 'no new tables' rule, BlastService/BriefService's flat layout, the pr_brief jsonb-blob pattern) and deliberately chose NOT to layer the module \u2014 failing 4 of 6 assertions that assume the layered template is the target shape.", "That means the without_skill outlier on eval-0 (593s / 117.8k tokens vs. with_skill's 201s / 80.5k) is exploration cost, not floundering \u2014 and it bought a design more consistent with this specific codebase's recent precedent, even though it scores worse against the skill's own template.", "Net signal: the skill reliably makes the model apply the layered pattern without exploring the repo first, which is fast and correct in the textbook sense \u2014 but the eval-0 assertions can't currently tell 'skill-template-conformant' apart from 'codebase-precedent-conformant', and this run shows those two can genuinely disagree. See eval_feedback in eval-0's grading.json files for the recommended fix."]}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

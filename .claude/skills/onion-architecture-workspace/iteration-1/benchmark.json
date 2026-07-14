@@ -1,0 +1,158 @@
+{
+  "metadata": {
+    "skill_name": "onion-architecture",
+    "skill_path": ".claude/skills/onion-architecture",
+    "executor_model": "claude-sonnet-5",
+    "analyzer_model": "claude-sonnet-5",
+    "timestamp": "2026-07-13T10:45:00Z",
+    "evals_run": [0, 1, 2, 3],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "eval_name": "module-layer-design",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": { "pass_rate": 1.0, "passed": 6, "failed": 0, "total": 6, "time_seconds": 201.2, "tokens": 80540, "tool_calls": 4, "errors": 0 },
+      "expectations": [
+        { "text": "D1: Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service", "passed": true, "evidence": "domain/application/adapters folders shown for the new module" },
+        { "text": "D2: The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import", "passed": true, "evidence": "policy + entity are plain TS with zero framework imports" },
+        { "text": "D3: The application/use-case class depends on a port/interface for persistence, not a concrete adapter class", "passed": true, "evidence": "use case constructor takes port interfaces only" },
+        { "text": "D4: Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself", "passed": true, "evidence": "explicit container.ts wiring section" },
+        { "text": "D5: Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary", "passed": true, "evidence": "adapters/db/untested-touch.mapper.ts referenced" },
+        { "text": "D6: Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB", "passed": true, "evidence": "mocks.ts additions for all three new ports" }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "eval_name": "module-layer-design",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": { "pass_rate": 0.333, "passed": 2, "failed": 4, "total": 6, "time_seconds": 593.4, "tokens": 117752, "tool_calls": 33, "errors": 0 },
+      "expectations": [
+        { "text": "D1: Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service", "passed": false, "evidence": "deliberate flat rule.ts/service.ts/routes.ts layout, justified by BlastService/BriefService precedent" },
+        { "text": "D2: The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import", "passed": true, "evidence": "rule.ts is pure, no I/O imports" },
+        { "text": "D3: The application/use-case class depends on a port/interface for persistence, not a concrete adapter class", "passed": false, "evidence": "CoverageService does `new ReviewRepository(container.db)` inside its own constructor" },
+        { "text": "D4: Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself", "passed": false, "evidence": "explicit section '7. platform/container.ts — no change'" },
+        { "text": "D5: Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary", "passed": false, "evidence": "no mapper introduced; reuses existing jsonb-blob facade methods directly" },
+        { "text": "D6: Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB", "passed": true, "evidence": "'service.test.ts — unit test with container.git mocked ... and a mock ReviewRepository/db'" }
+      ],
+      "notes": [
+        "Spent 33 tool calls reading server/CLAUDE.md, pull.repo.ts, container.ts, modules/index.ts, and the real BlastService/BriefService code before designing — caught the repo's 'no new tables' rule and reused the existing pr_brief jsonb-blob convention instead of proposing new columns or a new table.",
+        "Deliberately chose NOT to layer this module, citing that BlastService/BriefService (the closest recent precedent) are flat services, not domain/application/adapters — a defensible, precedent-grounded call that nonetheless fails 4 of 6 skill-template assertions."
+      ]
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "domain-importing-infra",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": { "pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 165.1, "tokens": 72601, "tool_calls": 4, "errors": 0 },
+      "expectations": [
+        { "text": "E1", "passed": true, "evidence": "flags the domain -> infra import explicitly" },
+        { "text": "E2", "passed": true, "evidence": "flags toRow() living in the entity" },
+        { "text": "E3", "passed": true, "evidence": "introduces adapters/db/invoice.mapper.ts" },
+        { "text": "E4", "passed": true, "evidence": "full corrected code provided" }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "domain-importing-infra",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": { "pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 164.8, "tokens": 67404, "tool_calls": 2, "errors": 0 },
+      "expectations": [
+        { "text": "E1", "passed": true, "evidence": "flags the domain -> infra import explicitly" },
+        { "text": "E2", "passed": true, "evidence": "flags toRow() living in the entity" },
+        { "text": "E3", "passed": true, "evidence": "introduces infrastructure/invoice.mapper.ts" },
+        { "text": "E4", "passed": true, "evidence": "full corrected code provided, plus an unrequested constructor invariant" }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "use-case-instantiates-adapter",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": { "pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 157.0, "tokens": 69012, "tool_calls": 3, "errors": 0 },
+      "expectations": [
+        { "text": "F1", "passed": true, "evidence": "flags new PostgresInvoiceRepository(db) inside the constructor" },
+        { "text": "F2", "passed": true, "evidence": "explains it can't be unit-tested without a real DB" },
+        { "text": "F3", "passed": true, "evidence": "injects InvoiceRepository port via constructor" },
+        { "text": "F4", "passed": true, "evidence": "explicit container.ts wiring snippet" }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "use-case-instantiates-adapter",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": { "pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 157.6, "tokens": 67206, "tool_calls": 2, "errors": 0 },
+      "expectations": [
+        { "text": "F1", "passed": true, "evidence": "flags new PostgresInvoiceRepository(db) inside the constructor" },
+        { "text": "F2", "passed": true, "evidence": "explains DI/testability downside" },
+        { "text": "F3", "passed": true, "evidence": "injects InvoiceRepository port via constructor" },
+        { "text": "F4", "passed": true, "evidence": "composition-root.ts factory, functionally equivalent to container.ts" }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "controller-bypasses-use-case",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": { "pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 164.2, "tokens": 71027, "tool_calls": 3, "errors": 0 },
+      "expectations": [
+        { "text": "G1", "passed": true, "evidence": "flags route calling repo directly" },
+        { "text": "G2", "passed": true, "evidence": "calls out the void-invoice bypass as 'the critical bug'" },
+        { "text": "G3", "passed": true, "evidence": "flags raw row returned from GET" },
+        { "text": "G4", "passed": true, "evidence": "adds GetInvoiceUseCase/PayInvoiceUseCase enforcing markPaid()" }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "controller-bypasses-use-case",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": { "pass_rate": 1.0, "passed": 4, "failed": 0, "total": 4, "time_seconds": 160.1, "tokens": 69447, "tool_calls": 2, "errors": 0 },
+      "expectations": [
+        { "text": "G1", "passed": true, "evidence": "flags route reaching past the use-case layer into the DB adapter" },
+        { "text": "G2", "passed": true, "evidence": "'the one business rule this endpoint exists to protect is unreachable code' — listed as issue #1" },
+        { "text": "G3", "passed": true, "evidence": "flags raw row leaking from GET" },
+        { "text": "G4", "passed": true, "evidence": "adds PayInvoiceUseCase/GetInvoiceUseCase with domain-error-to-HTTP mapping" }
+      ],
+      "notes": [
+        "Also caught and fixed a missing 404 on the GET endpoint for a nonexistent invoice — a real bug no assertion in this eval checks for."
+      ]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": { "mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0 },
+      "time_seconds": { "mean": 171.9, "stddev": 19.9, "min": 157.0, "max": 201.2 },
+      "tokens": { "mean": 73295, "stddev": 5048, "min": 69012, "max": 80540 }
+    },
+    "without_skill": {
+      "pass_rate": { "mean": 0.833, "stddev": 0.333, "min": 0.333, "max": 1.0 },
+      "time_seconds": { "mean": 269.0, "stddev": 216.3, "min": 157.6, "max": 593.4 },
+      "tokens": { "mean": 80452, "stddev": 24887, "min": 67206, "max": 117752 }
+    },
+    "delta": {
+      "pass_rate": "+0.17",
+      "time_seconds": "-97.1",
+      "tokens": "-7157"
+    }
+  },
+  "notes": [
+    "Pooled pass rate: with_skill 18/18 (100%), without_skill 14/18 (78%) — but this +17pp gap comes entirely from eval-0 (module-layer-design); evals 1-3 (all 'review this fixture' tasks) are saturated 100% in both configurations, exactly like the earlier zod skill benchmark.",
+    "On evals 1-3, the base model already applies the skill's core review checks unprompted: it independently flags domain-to-infra imports, adapter-instantiated-in-use-case, and controller-bypasses-use-case every single time, with no measurable skill lift.",
+    "Eval-0 is the only differentiator, and it cuts against a simple 'skill wins' story: with-skill applied the skill's textbook domain/application/adapters template from memory (4 tool calls, no repo exploration) and passed all 6 assertions. Without-skill spent 33 tool calls actually reading this codebase's real conventions (CLAUDE.md's 'no new tables' rule, BlastService/BriefService's flat layout, the pr_brief jsonb-blob pattern) and deliberately chose NOT to layer the module — failing 4 of 6 assertions that assume the layered template is the target shape.",
+    "That means the without_skill outlier on eval-0 (593s / 117.8k tokens vs. with_skill's 201s / 80.5k) is exploration cost, not floundering — and it bought a design more consistent with this specific codebase's recent precedent, even though it scores worse against the skill's own template.",
+    "Net signal: the skill reliably makes the model apply the layered pattern without exploring the repo first, which is fast and correct in the textbook sense — but the eval-0 assertions can't currently tell 'skill-template-conformant' apart from 'codebase-precedent-conformant', and this run shows those two can genuinely disagree. See eval_feedback in eval-0's grading.json files for the recommended fix."
+  ]
+}

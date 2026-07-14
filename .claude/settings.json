@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node .claude/skills/dependency-checker/scripts/analyze-deps.mjs *)",
+      "Bash(curl -s http://localhost:*)",
+      "Bash(node node_modules/vitest/dist/cli.js run *)",
+      "Bash(node_modules/.bin/vitest run *)",
+      "Bash(node node_modules/typescript/bin/tsc --noEmit *)",
+      "Bash(node_modules/.bin/tsc --noEmit *)",
+      "Bash(awk *)",
+      "Bash(bash scripts/check-vendor-sync.sh)",
+      "Bash(npx vitest run *)"
+    ]
+  }
+}

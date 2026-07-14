@@ -1,0 +1,13 @@
+{
+  "eval_id": 0,
+  "eval_name": "module-layer-design",
+  "prompt": "I'm adding a small new feature to DevDigest (Fastify + Drizzle + Postgres, TypeScript): automatically flag PRs that touch files with no test coverage (an 'untested-touch' rule) and persist that flag per PR so the UI can show a badge. Design the module from scratch: what files/classes/interfaces do I need, where does each one live, and how do I wire it into the DI container (server/src/platform/container.ts)? Sketch the file layout and key signatures — no need for full implementations, just enough to see the shape and the dependency direction.",
+  "assertions": [
+    { "id": "D1", "text": "Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service" },
+    { "id": "D2", "text": "The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import" },
+    { "id": "D3", "text": "The application/use-case class depends on a port/interface for persistence, not a concrete adapter class" },
+    { "id": "D4", "text": "Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself" },
+    { "id": "D5", "text": "Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary" },
+    { "id": "D6", "text": "Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB" }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "expectations": [
+    { "text": "E1: Identifies that the domain entity imports the Drizzle table/schema directly, violating inward-only dependency direction", "passed": true, "evidence": "\"import { invoicesTable } from '../../../db/schema/invoices.js'\" ... \"pulling in an outer-layer dependency. The domain layer must have zero framework/DB imports.\"" },
+    { "text": "E2: Identifies that the toRow() row-mapping method lives inside the domain entity and should move to an adapter-level mapper", "passed": true, "evidence": "\"Mapping to a persistence row happens inside the domain entity... row mapping is an adapter responsibility.\"" },
+    { "text": "E3: Proposes a concrete fix: the entity depends only on primitive/domain types, and mapping to $inferInsert/$inferSelect happens in a separate mapper", "passed": true, "evidence": "Adds modules/billing/adapters/db/invoice.mapper.ts with toDomain/toRow using $inferSelect/$inferInsert, entity stripped of the Drizzle import." },
+    { "text": "E4: Provides corrected code implementing the fix, not just a description of the problem", "passed": true, "evidence": "Full corrected entity, mapper, repository, and port code blocks provided." }
+  ],
+  "summary": { "passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0 },
+  "timing": { "executor_duration_seconds": 165.1 }
+}

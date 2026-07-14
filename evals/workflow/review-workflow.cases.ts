@@ -23,7 +23,7 @@ export const cases: WorkflowCase[] = [
       "Я планую додати НОВИЙ, ще не реалізований ендпоінт GET /reviews/:id/export (віддає ревʼю як " +
       "markdown). Спершу звірся з конвенціями API цього репо. Потім ОБОВʼЯЗКОВО запусти сабагента " +
       "architecture-reviewer, щоб він оцінив мій план на відповідність onion-шарам — не рецензуй сам.",
-    expectFilesRead: ["server/docs/api-contracts.md"],
+    expectFilesRead: ["docs/server/api-contracts.md"],
     expectSubagents: ["architecture-reviewer"],
     maxTurns: 8,
   },
@@ -43,17 +43,18 @@ export const cases: WorkflowCase[] = [
     maxTurns: 8,
   },
 
-  // --- trace (1 session): CLAUDE.md "Hit unexpected behavior" routing -> gotchas ----------------
+  // --- trace (1 session): CLAUDE.md "Hit unexpected behavior" routing -> INSIGHTS.md -----------
   // Was a contrast case, but the control run (empty tmpdir) could still reach the real repo by
-  // absolute path and read gotchas.md, making the negative flaky. As a single-session trace it
-  // reliably checks the same routing rule: in the real repo, the discovery prompt reads gotchas.md.
+  // absolute path and read INSIGHTS.md, making the negative flaky. As a single-session trace it
+  // reliably checks the same routing rule: in the real repo, the discovery prompt reads
+  // reviewer-core/INSIGHTS.md (the file `/engineering-insights` itself writes to).
   {
     kind: "trace",
-    name: "CLAUDE.md routes a gotchas lookup to reviewer-core/insights",
+    name: "CLAUDE.md routes a gotchas lookup to reviewer-core/INSIGHTS.md",
     prompt:
       "У reviewer-core я стикнувся з несподіваною поведінкою — щось працює не так, як я очікував. " +
       "За настановами цього репо, де це вже могло бути задокументовано? Прочитай той файл.",
-    expectFilesRead: ["reviewer-core/insights/gotchas.md"],
+    expectFilesRead: ["reviewer-core/INSIGHTS.md"],
     maxTurns: 5,
   },
 
