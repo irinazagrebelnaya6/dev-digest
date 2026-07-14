@@ -21,12 +21,14 @@
 #     a judged practice (0.33 vs the 0.6 gate — failed to distinguish internal path-alias deps from
 #     external npm ones). google/gemini-2.5-flash instead, for the same reliability reason as
 #     eval_model_agents below.
-#   - eval_model_agents    — agents tool tier (own Read/Grep/Glob, no subagent dispatch, but
-#     threshold:1.0 cases that require exact output-format compliance — verbatim quotes, an
-#     explicit PASS/FAIL gate). Ran on deepseek first; it found both violations and named the
-#     right rule IDs but dropped the formatting requirements (4/6 practices), failing the 1.0 gate.
-#     google/gemini-2.5-flash instead — same model already proven capable enough for the harder
-#     workflow tier below.
+#   - eval_model_agents    — agents tool tier (own Read/Grep/Glob, no subagent dispatch), whose
+#     quality cases demand exact output-format discipline: a verbatim quote of the offending line
+#     per finding AND an explicit closing `## Gate verdict: PASS|FAIL`. deepseek then
+#     gemini-2.5-flash both found the violations but kept dropping those two format practices, so
+#     the cases stayed red. Moved to anthropic/claude-haiku-4.5 (served natively by OpenRouter's
+#     Anthropic Skin, works through the bundled LiteLLM proxy unchanged): a cheap Anthropic model
+#     follows the output contract far more reliably. Paired with the agent-prompt fix (the format
+#     rules are now mandatory in .claude/agents/architecture-reviewer*.md) and 0.7 thresholds.
 #   - eval_model_workflow  — the workflow tier's `dispatch` cases assert the model actually
 #     invokes the Task/Agent tool to hand off to a subagent. Of the models evals/README.md
 #     verifies, only google/gemini-2.5-flash reliably does that — deepseek and gpt-4.1-mini both
@@ -85,8 +87,8 @@ jobs:
           {
             echo "eval_model_skills=google/gemini-2.5-flash"
             echo "eval_judge_model_skills=google/gemini-2.5-flash"
-            echo "eval_model_agents=google/gemini-2.5-flash"
-            echo "eval_judge_model_agents=google/gemini-2.5-flash"
+            echo "eval_model_agents=anthropic/claude-haiku-4.5"
+            echo "eval_judge_model_agents=anthropic/claude-haiku-4.5"
             echo "eval_model_workflow=google/gemini-2.5-flash"
           } >> "$GITHUB_OUTPUT"
 

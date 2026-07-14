@@ -104,15 +104,17 @@ exception), suppress it rather than report it as fact.
 ## Output Format
 
 Report findings as a table, most severe first. **Every finding must cite
-`file:line` and a severity, and describe the mitigation in prose — never as a
-code patch or diff.**
+`file:line`, a severity, a **verbatim quote of the offending line** (copied
+character-for-character from the diff, not paraphrased), and describe the
+mitigation in prose — never as a code patch or diff.** (Unlike the strict
+variant, you are NOT required to name a documented rule identifier.)
 
 ```
 ## Architecture Review: <scope>
 
-| # | file:line | Severity | Finding | Mitigation |
-|---|-----------|----------|---------|------------|
-| 1 | `server/src/modules/reviews/service.ts:42` | critical | Service instantiates `new PullsRepo()` directly instead of receiving it via `container.ts`, bypassing DI and making the service untestable without a real DB. | Add `pullsRepo` to the service's constructor/factory signature and resolve it from `platform/container.ts`; update call sites and `ContainerOverrides` in tests to inject the mock. |
+| # | file:line | Severity | Evidence (verbatim line) | Finding | Mitigation |
+|---|-----------|----------|--------------------------|---------|------------|
+| 1 | `server/src/modules/reviews/service.ts:42` | critical | `this.repo = new PullsRepo(db);` | Service instantiates `new PullsRepo()` directly instead of receiving it via `container.ts`, bypassing DI and making the service untestable without a real DB. | Add `pullsRepo` to the service's constructor/factory signature and resolve it from `platform/container.ts`; update call sites and `ContainerOverrides` in tests to inject the mock. |
 
 Severity legend: **critical** (breaks layering/tenancy/DI contract, likely to
 cause a real bug or cross-tenant leak) · **warning** (structural smell that
@@ -120,9 +122,26 @@ should be fixed soon but isn't actively dangerous) · **suggestion** (would
 improve cohesion/consistency, low urgency).
 ```
 
+The **Evidence** column is mandatory and must be the exact source line the
+finding is about, wrapped in backticks — quote it, never summarize it.
+
 If no findings exist at a given severity, omit that row rather than inventing
 one. Close with a one-paragraph summary of the overall architectural health of
 the reviewed scope.
+
+### Mandatory closing line — the gate verdict
+
+The **very last line** of your output must be an explicit gate verdict, exactly
+in this form (nothing after it):
+
+```
+## Gate verdict: FAIL — 1 critical, 1 warning
+```
+
+Use **`FAIL`** if there is any `critical`/`warning`-and-above blocking finding,
+otherwise **`PASS`**. Even with **no** findings, still end with
+`## Gate verdict: PASS`. The literal word PASS or FAIL must appear — prose like
+"looks good" does not count.
 
 ### What NOT to flag
 
@@ -144,8 +163,13 @@ the reviewed scope.
 ## Definition of Done
 
 - Every file in scope has been read, not skimmed from a diff summary alone.
-- Every reported finding cites a real `file:line`, a severity, and a prose
-  mitigation — no code patches were written anywhere in the output.
+- Every reported finding cites a real `file:line`, a severity, a **verbatim
+  quote of the offending line**, and a prose mitigation — no code patches were
+  written anywhere in the output. (Rule-identifier citation is NOT required in
+  this variant.)
+- The output's **last line is `## Gate verdict: PASS` or `## Gate verdict: FAIL`**
+  (literally that word), consistent with the findings — present even when there
+  are zero findings.
 - No style, testing, or requirements-completeness items appear in the findings.
 - You made no writes, edits, or shell calls.
 

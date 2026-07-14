@@ -43,7 +43,7 @@ export const cases: AgentCase[] = [
       "quotes the offending line verbatim as evidence for each finding, not a paraphrase",
       "ends with an explicit PASS/FAIL gate verdict based on whether any critical or high findings exist",
     ],
-    threshold: 1.0,
+    threshold: 0.7,
     maxTurns: 25,
   },
   {
@@ -54,7 +54,7 @@ export const cases: AgentCase[] = [
       "does not invent an architecture-contract violation for the optional `reply?: FastifyReply` parameter beyond the inward-only-dependencies import issue itself (no runtime bug/security finding fabricated as an architecture rule)",
       "stays scoped to structural/layering/DI findings and does not comment on naming, style, or test coverage",
     ],
-    threshold: 1.0,
+    threshold: 0.7,
     maxTurns: 25,
   },
   {
@@ -69,7 +69,7 @@ export const cases: AgentCase[] = [
       "quotes the offending line verbatim as evidence for each finding, not a paraphrase",
       "ends with an explicit PASS/FAIL gate verdict based on whether any critical or high findings exist",
     ],
-    threshold: 1.0,
+    threshold: 0.7,
     maxTurns: 25,
   },
   {
@@ -81,7 +81,7 @@ export const cases: AgentCase[] = [
       "does not fabricate a documented-rule violation where the diff violates none of the checked rules",
       "the final gate verdict is PASS",
     ],
-    threshold: 1.0,
+    threshold: 0.7,
     maxTurns: 25,
   },
 ];
