@@ -11,5 +11,18 @@
       "Bash(bash scripts/check-vendor-sync.sh)",
       "Bash(npx vitest run *)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/test-gate.sh"
+          }
+        ]
+      }
+    ]
   }
 }
