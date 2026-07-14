@@ -3,6 +3,7 @@
 import React from "react";
 import { SectionLabel } from "@devdigest/ui";
 import { IntentCard } from "../IntentCard";
+import { PrBriefCard } from "../PrBriefCard";
 import { RiskAreasCard } from "../RiskAreasCard";
 import { BlastRadiusCard } from "../BlastRadiusCard";
 import { s } from "./styles";
@@ -27,6 +28,7 @@ export function OverviewTab({ prBody, prId, repoFullName, headSha }: OverviewTab
       <div style={s.grid}>
         <div style={s.col}>
           {prId && <IntentCard prId={prId} />}
+          {prId && <PrBriefCard prId={prId} repoFullName={repoFullName} headSha={headSha} />}
           {prId && <RiskAreasCard prId={prId} />}
         </div>
         <div style={s.col}>

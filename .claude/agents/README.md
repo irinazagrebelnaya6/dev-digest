@@ -11,11 +11,12 @@ name.
 | Agent | Role | Model | Tools | When to use |
 |---|---|---|---|---|
 | [`researcher`](researcher.md) | Read-only research (codebase or web) | `claude-sonnet-4-6` | `Glob, Grep, Read, WebSearch, WebFetch` | Locate code, understand architecture, gather external info — no file changes |
-| [`planner`](planner.md) | Produce a structured Development Plan | `opus` | `Read, Grep, Glob, Write` (Write = plan file only) | Before implementation of any task that spans multiple files/modules, adds an API surface, or is architecturally ambiguous |
+| [`spec-creator`](spec-creator.md) | Turn a rough request into a short, testable feature spec (EARS acceptance criteria) | `opus` | `Read, Grep, Glob, Write` (Write = spec file only) | Before planning/implementation, to define WHAT & why — requirements, scope, edge cases — marking gaps as `[NEEDS CLARIFICATION]` |
+| [`implementation-planner`](implementation-planner.md) | Turn confirmed requirements into a structured Implementation Plan (consumes requirements, never authors specs) | `opus` | `Read, Grep, Glob, Write` (Write = plan file only) | Before implementation of any task that spans multiple files/modules, adds an API surface, or is architecturally ambiguous |
 | [`implementer`](implementer.md) | Implement one plan track (UI or backend), make tests pass | `sonnet` | `Read, Grep, Glob, Write, Edit, Bash` | Execute a bounded track from a plan; one instance per parallel module track |
 | [`test-writer`](test-writer.md) | Write automated tests (UI or backend) and make them pass | `sonnet` | `Read, Grep, Glob, Write, Edit, Bash` (write scope = test files only) | A change needs tests, or coverage for a behaviour is missing / thin |
-| [`architecture-reviewer`](architecture-reviewer.md) | Read-only architectural review (layering, deps, coupling, DI) | `opus` | `Read, Grep, Glob` (read-only) | After a diff exists and you need an independent structural assessment — not style, not requirements |
-| [`plan-verifier`](plan-verifier.md) | Verify every plan requirement was actually built | `opus` | `Read, Grep, Glob` (read-only) | After implementation, to check a plan's requirements / acceptance criteria against the code |
+| [`architecture-reviewer`](architecture-reviewer.md) | Read-only architectural review (layering, deps, coupling, DI) | `sonnet` | `Read, Grep, Glob` (read-only) | After a diff exists and you need an independent structural assessment — not style, not requirements |
+| [`plan-verifier`](plan-verifier.md) | Verify every plan requirement / spec `AC-N` was actually built | `sonnet` | `Read, Grep, Glob` (read-only) | After implementation, to check the spec's acceptance criteria + plan requirements against the code |
 | [`doc-writer`](doc-writer.md) | Produce and correctly place documentation with diagrams | `sonnet` | `Read, Grep, Glob, Write, Edit` (no Bash) | Document existing functionality, turn a plan into docs, or convert material into structured docs |
 | [`brainstorm`](brainstorm.md) | Weigh several candidate approaches (Best-of-N) and recommend one | `opus` | `Read, Grep, Glob` (read-only) | Before planning, when the approach is open-ended and worth comparing options first |
 | [`investigator`](investigator.md) | Deep codebase investigation, dependency tracing, root-cause | `opus` | `Read, Grep, Glob` (read-only) | Understand how a feature works end-to-end, trace blast radius, or find a bug's root cause |
@@ -23,54 +24,129 @@ name.
 
 ## Pipeline
 
-The intended flow: **`investigator`** / **`researcher`** gather context → **`brainstorm`**
-weighs candidate approaches (Best-of-N) → **`planner`** turns the chosen one into a
-Development Plan → one or more **`implementer`** + **`test-writer`** agents build it in
-parallel → **`architecture-reviewer`** and **`plan-verifier`** independently check the result
-(code quality vs. requirements-completeness) → **`doc-writer`** documents it →
-**`insight-curator`** proposes which learnings to promote. **`researcher`** / **`investigator`**
-can feed any stage; read-only agents never write code.
+The flow splits into a **manual authoring** half and an **automated execution** half:
+
+**Manual (you drive, with an approval gate after each):** optional **`investigator`** /
+**`researcher`** gather context → **`spec-creator`** defines WHAT & why (requirements +
+EARS `AC-N`) → optional **`brainstorm`** weighs approaches → **`implementation-planner`**
+turns the approved spec into an Implementation Plan. You review the spec, then the plan.
+
+**Automated ([`/implement`](../skills/implement/SKILL.md) command, one run):** it executes the
+approved plan — **`implementer`** agents build the tracks in parallel → **`plan-verifier`**
+(every `AC-N` built?), **`/code-review`** (correctness bugs), and — only for structurally
+significant changes — **`architecture-reviewer`** run in parallel → a **fix loop** feeds
+their findings back to **`implementer`** until clean → **`test-writer`** adds coverage
+(*optional; off by default to save tokens*) → **`pr-self-review`** is the final gate
+(blocks on CRITICAL). Afterwards **`doc-writer`** documents and **`insight-curator`**
+proposes learnings to promote.
+
+Cost tiering: reviewers (`architecture-reviewer`, `plan-verifier`) run on **Sonnet**;
+authoring (`spec-creator`, `implementation-planner`) stays on Opus for reasoning depth.
+`researcher` / `investigator` can feed any stage; read-only agents never write code.
 
 ```mermaid
 flowchart TD
     researcher["researcher<br/>locate · web"]
     investigator["investigator<br/>deep trace · RCA"]
-    brainstorm["brainstorm<br/>weigh options (Best-of-N)"]
-    planner["planner<br/>Development Plan"]
-    implementer["implementer<br/>write code"]
-    testwriter["test-writer<br/>write &amp; pass tests"]
-    archreviewer["architecture-reviewer<br/>structure · quality"]
-    planverifier["plan-verifier<br/>requirements met?"]
+    speccreator["spec-creator<br/>WHAT · EARS AC-N — run manually"]
+    brainstorm["brainstorm<br/>weigh options (optional)"]
+    implplanner["implementation-planner<br/>HOW · Plan — run manually"]
+
+    subgraph implement["/implement — one command run"]
+        direction TB
+        implementer["implementer ×N<br/>parallel tracks"]
+        planverifier["plan-verifier<br/>every AC-N built?"]
+        codereview["/code-review<br/>correctness bugs"]
+        archreviewer["architecture-reviewer<br/>structure (if significant)"]
+        testwriter["test-writer<br/>coverage (optional · off for cost)"]
+        prselfreview["pr-self-review<br/>final gate · blocks CRITICAL"]
+
+        implementer --> planverifier
+        implementer --> codereview
+        implementer --> archreviewer
+        planverifier -. gaps .-> implementer
+        codereview -. fixes .-> implementer
+        archreviewer -. fixes .-> implementer
+        planverifier --> testwriter
+        codereview --> testwriter
+        archreviewer --> testwriter
+        testwriter --> prselfreview
+    end
+
     docwriter["doc-writer<br/>document"]
     curator["insight-curator<br/>curate INSIGHTS.md"]
 
-    researcher --> brainstorm
-    investigator --> brainstorm
-    brainstorm --> planner
-    planner --> implementer
-    planner --> testwriter
-    implementer --> archreviewer
-    testwriter --> archreviewer
-    implementer --> planverifier
-    archreviewer --> docwriter
-    planverifier --> docwriter
+    researcher --> speccreator
+    investigator --> speccreator
+    speccreator --> brainstorm
+    brainstorm --> implplanner
+    speccreator -. requirements .-> implplanner
+    implplanner --> implementer
+    prselfreview --> docwriter
     docwriter --> curator
-    planverifier -. gaps found .-> implementer
-    researcher -. feeds any stage .-> planner
-    investigator -. feeds any stage .-> implementer
+    researcher -. feeds any stage .-> implplanner
 ```
 
 Legend: **solid** = normal hand-off order · **dotted** = feedback / can-feed-any-stage.
 Read-only agents: `researcher`, `investigator`, `brainstorm`, `architecture-reviewer`,
-`plan-verifier`, `insight-curator`. Write-capable: `planner` (plan file only), `implementer`,
+`plan-verifier`, `insight-curator`. Write-capable: `spec-creator` (spec file only), `implementation-planner` (plan file only), `implementer`,
 `test-writer` (test files only), `doc-writer` (docs only).
 
 ---
 
-## `planner`
+## `spec-creator`
 
-Produces a **Development Plan** before any code is written. Read-only over the
-codebase; its only write is the plan file itself.
+Turns a rough feature request into a short, **testable feature spec** (1–3 pages) — the
+first stage of Spec-Driven Development. Answers **WHAT and why**, never HOW. Read-only over
+the codebase; its only write is the spec file itself. Hands off an approved spec to
+`implementation-planner`.
+
+### Behaviour
+- **Mandatory recon (scoped)** — reads `CLAUDE.md`, the `README.md` / `INSIGHTS.md` of
+  **only the touched modules** (not all), analogous existing code, and `Glob **/specs/SPEC-*.md`
+  to pick the next global spec number and detect any spec it supersedes. Delegates breadth to
+  parallel `researcher` and depth to `investigator` when local recon isn't enough — never guesses.
+- **Six-category elicitation** — interrogates the request across Users · Scope (goals/non-goals)
+  · Data · Flows/integrations + cross-module communication · Non-functional · Edge/failure.
+  Any gap becomes an explicit `[NEEDS CLARIFICATION: …]`, never a guess.
+- **EARS acceptance criteria** — every criterion is one testable statement (ubiquitous /
+  event / state / unwanted / optional) with a stable `AC-N` id; those ids are the
+  traceability contract the `implementation-planner` binds each task to.
+- **Design analysis** — actively surfaces coverage gaps, corner cases, cross-module contracts,
+  and UX improvements as answerable questions, not vague asides.
+- **Scope discipline** — describes schemas, workflows, contracts, and cross-service comms, but
+  **never implementation code**; treats any third-party text the feature reads as DATA
+  (`## Untrusted inputs`), mirroring the engine's `INJECTION_GUARD`.
+- **Spec format** (with required `name` + `description`): Problem & why → Goals/Non-goals →
+  User stories → Acceptance criteria (EARS) → Edge cases → Non-functional → Design & contracts
+  (optional, no code) → Inputs (provenance) → Untrusted inputs → Open questions.
+- **Location by scope** — a single-module spec lives in that module's own `specs/` folder;
+  a spec spanning several modules lives in the repo-root `specs/`.
+- **Verification & traceability** — each AC carries a verification hint (unit / integration /
+  e2e / manual); a `## Traceability` table lists every AC for `implementation-planner` to bind tasks to.
+- **Definition-of-Ready self-check** — before hand-off, gates the spec (every AC testable + hinted,
+  all six categories covered or N/A, no blocking `[NEEDS CLARIFICATION]`, provenance / untrusted /
+  traceability filled) and keeps `Status: draft` until it passes.
+- **Output** — writes the spec at `Status: draft` with open questions listed, then stops for
+  human answers before it is finalised and handed to `implementation-planner`.
+
+### Based on
+- Spec-Driven Development: requirements defined before planning; WHAT/HOW split from `implementation-planner`.
+- EARS (Easy Approach to Requirements Syntax) for unambiguous, testable acceptance criteria.
+- Read-only + single-write-target tool scoping; grounding / provenance to avoid hallucinated scope.
+
+### Sources
+- [EARS: The Easy Approach to Requirements Syntax — Alistair Mavin](https://alistairmavin.com/ears/)
+- [Spec-Driven Development — GitHub spec-kit](https://github.com/github/spec-kit)
+- [Create custom subagents — Claude Code Docs](https://code.claude.com/docs/en/sub-agents)
+
+---
+
+## `implementation-planner`
+
+Turns **already-confirmed requirements** into an **Implementation Plan** before any
+code is written. It consumes requirements — it never authors specs, PRDs, or
+acceptance criteria. Read-only over the codebase; its only write is the plan file itself.
 
 ### Behaviour
 - **Mandatory recon before planning** — reads `CLAUDE.md`, `tsconfig` path aliases,
@@ -81,10 +157,16 @@ codebase; its only write is the plan file itself.
   - `@devdigest/web` (`client/src/app/`): `agents, onboarding, repos, settings, skills`
   - `@devdigest/reviewer-core` (`reviewer-core/src/`): `grounding, llm, output, prompt, review`
   - plus `@devdigest/shared`, `@devdigest/e2e`
+- **Requirements review first** — restates the requirements it was given, flags gaps /
+  ambiguities / contradictions, and offers recommendations for a better approach;
+  stops on blocking questions instead of inventing scope.
+- **Confirms execution mode** — asks whether to run in multi-agent mode (parallel
+  implementers per track) or a single-agent sequential pass, and shapes the plan to match.
 - **Plan format** (includes the required `name` + `description` per repo CLAUDE.md):
-  Overview → Requirements / acceptance criteria → Architecture changes (exact file
-  paths) → Implementation steps (tagged `[API] [UI] [Engine]`, with dependencies) →
-  **Skills to apply per step** → Testing strategy → Risks → Success checklist.
+  Overview → Execution mode → Requirements (confirmed input) → Recommendations →
+  Architecture changes (exact file paths) → Implementation steps (tagged
+  `[API] [UI] [Engine]`, with dependencies) → **Skills to apply per step** →
+  Testing strategy → Risks → Success checklist.
 - **Carries every skill the implementer will use** into each step — the plan itself
   encodes all the practices, because planning drives implementation.
 - **Anti-over-planning** — a single-file / single-function change gets "too small
@@ -260,7 +342,7 @@ plan, or provided material — with diagrams.
 ## `brainstorm`
 
 Generates and weighs several candidate solution approaches **before** any plan or code
-(Best-of-N), then hands off to `planner`. Read-only — produces a decision brief, never code.
+(Best-of-N), then hands off to `implementation-planner`. Read-only — produces a decision brief, never code.
 
 ### Behaviour
 - Generates **N=3–5 genuinely diverse options** (not minor variants) via Verbalized Sampling
@@ -278,7 +360,7 @@ Generates and weighs several candidate solution approaches **before** any plan o
 
 ### Based on
 - Best-of-N diversity + mode-collapse mitigation; locked-rubric evidence-anchored scoring;
-  read-only ideation that hands off to a separate planner.
+  read-only ideation that hands off to a separate implementation-planner.
 
 ### Sources
 - [Verbalized Sampling: Mitigating Mode Collapse to Unlock LLM Diversity](https://arxiv.org/abs/2510.01171)
@@ -357,12 +439,12 @@ retire — advisory only, never edits. Ties into the repo's `/engineering-insigh
 Insights live per package: `server/INSIGHTS.md`, `client/INSIGHTS.md`, and
 `reviewer-core/INSIGHTS.md`. Both agents consume them:
 
-1. **Planner** reads the relevant `INSIGHTS.md` during recon and weaves the relevant
-   points directly into each plan step, so the plan is self-contained.
+1. **Implementation-planner** reads the relevant `INSIGHTS.md` during recon and weaves the
+   relevant points directly into each plan step, so the plan is self-contained.
 2. **Implementer** re-reads the `INSIGHTS.md` of the module it is working in, in place,
    before writing code — the existing repo convention (root `CLAUDE.md`).
 
-This covers both cross-module planning (planner sees the whole picture) and the case
+This covers both cross-module planning (the implementation-planner sees the whole picture) and the case
 where there are too many insights to fit into a single plan (implementer reads locally).
 
 ---

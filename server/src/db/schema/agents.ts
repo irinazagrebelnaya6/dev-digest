@@ -31,6 +31,11 @@ export const agents = pgTable('agents', {
   repoIntel: boolean('repo_intel').notNull().default(true),
   enabled: boolean('enabled').notNull().default(true),
   version: integer('version').notNull().default(1),
+  // Project Context Folder (SPEC-01, Feature 1) — repo-relative paths to
+  // attached markdown docs (specs/docs/insights). Paths only; contents are
+  // read from the reviewed repo's clone at run time. Any change bumps the
+  // agent's version like any other config field (see modules/agents/helpers.ts).
+  contextPaths: jsonb('context_paths').$type<string[]>(),
   createdBy: uuid('created_by').references(() => users.id),
   createdAt: now(),
 });

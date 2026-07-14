@@ -23,6 +23,7 @@ export function toAgentDto(row: AgentRow): Agent {
     strategy: row.strategy as ReviewStrategy,
     ci_fail_on: row.ciFailOn as CiFailOn,
     repo_intel: row.repoIntel,
+    context_paths: row.contextPaths ?? null,
   };
 }
 
@@ -52,11 +53,14 @@ export interface ConfigChangePatch {
   strategy?: ReviewStrategy;
   ciFailOn?: CiFailOn;
   repoIntel?: boolean;
+  contextPaths?: string[];
 }
 
 /**
  * True when a patch changes config (vs. just toggling `enabled`) relative to the
  * existing row — a config change bumps the version and snapshots agent_versions.
+ * Attaching/detaching context docs is a config change too (D-10): any change to
+ * `contextPaths` bumps the version, same as every other agent config field.
  */
 export function isConfigChange(
   existing: Pick<
@@ -69,6 +73,7 @@ export function isConfigChange(
     | 'strategy'
     | 'ciFailOn'
     | 'repoIntel'
+    | 'contextPaths'
   >,
   patch: ConfigChangePatch,
 ): boolean {
@@ -81,6 +86,8 @@ export function isConfigChange(
     (patch.strategy !== undefined && patch.strategy !== existing.strategy) ||
     (patch.ciFailOn !== undefined && patch.ciFailOn !== existing.ciFailOn) ||
     (patch.repoIntel !== undefined && patch.repoIntel !== existing.repoIntel) ||
+    (patch.contextPaths !== undefined &&
+      JSON.stringify(patch.contextPaths) !== JSON.stringify(existing.contextPaths ?? [])) ||
     patch.outputSchema !== undefined
   );
 }

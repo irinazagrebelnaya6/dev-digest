@@ -23,6 +23,7 @@ export interface UpdateSkill {
   type?: SkillType;
   body?: string;
   enabled?: boolean;
+  contextPaths?: string[];
 }
 
 const INITIAL_SKILL_VERSION = 1;
@@ -92,6 +93,9 @@ export class SkillsRepository {
         ...(patch.type !== undefined ? { type: patch.type } : {}),
         ...(patch.body !== undefined ? { body: patch.body } : {}),
         ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+        // Project Context Folder (D-10): attaching/detaching docs is NOT a body
+        // change — persists in-place, no version bump (see isBodyChange).
+        ...(patch.contextPaths !== undefined ? { contextPaths: patch.contextPaths } : {}),
         ...(bodyChanged ? { version: nextVersion } : {}),
       })
       .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))

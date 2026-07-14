@@ -5,7 +5,7 @@ description: >
   dependency direction, coupling, DI, module boundaries — never to fix it.
   Trigger this agent after an implementer has produced a diff and you need an
   independent structural assessment, not a style pass or a requirements check.
-model: opus
+model: sonnet   # cost: run on Sonnet by default; raise to opus for large or high-risk structural reviews
 tools:
   - Read
   - Grep

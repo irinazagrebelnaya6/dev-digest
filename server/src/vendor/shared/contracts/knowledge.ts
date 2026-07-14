@@ -5,6 +5,84 @@ import { z } from 'zod';
  * Agents and their DTOs.
  */
 
+// ---- Project context (attached repo docs) ----
+// Repo-relative paths to markdown docs attached to an agent or skill. Only paths
+// are stored; contents are read from the reviewed repo's clone and injected at run
+// time. These strings are UNTRUSTED input — reject absolute paths and any `..`
+// segment at the boundary so a stored path can never escape the clone root.
+export const ContextPaths = z
+  .array(z.string().min(1))
+  .refine((paths) => paths.every((p) => !p.startsWith('/')), {
+    message: 'context paths must be repo-relative (no leading "/")',
+  })
+  .refine((paths) => paths.every((p) => !p.split('/').includes('..')), {
+    message: 'context paths must not contain ".." segments',
+  });
+export type ContextPaths = z.infer<typeof ContextPaths>;
+
+// Screen response for `GET /repos/:id/project-context` (read/preview only).
+// Shared so the server route and the client hook cannot drift.
+export const ProjectContextDoc = z.object({
+  path: z.string(),
+  badge: z.string(),
+  used_by: z.number().int(),
+  content: z.string().nullish(),
+  // Content hash/etag (sha256 of `content`) — echoed back by the client on
+  // Save as an optimistic-concurrency precondition (SPEC-02). Additive,
+  // `.nullish()` for back-compat with the SPEC-01 read-only response shape.
+  hash: z.string().nullish(),
+});
+export type ProjectContextDoc = z.infer<typeof ProjectContextDoc>;
+
+export const ProjectContextResponse = z.object({
+  docs: z.array(ProjectContextDoc),
+  degraded: z.boolean(),
+  reason: z.string().nullish(),
+});
+export type ProjectContextResponse = z.infer<typeof ProjectContextResponse>;
+
+// ---- Project context — write path (SPEC-02: authoring toolbar + editor) ----
+// Writes land only in the repo clone's working tree on disk (no git commit/push).
+// `path` is UNTRUSTED input — validated against `ContextPaths` (repo-relative, no
+// `..`, no absolute) at the boundary; the server additionally requires it to
+// resolve within the clone AND within a configured context root.
+
+// Single route for create+update: `hash` present = update precondition (409 on
+// mismatch), absent = create. `overwrite` governs create-time path collisions.
+export const WriteContextDocBody = z.object({
+  path: z.string().min(1),
+  content: z.string(),
+  hash: z.string().nullish(),
+  overwrite: z.boolean().optional(),
+});
+export type WriteContextDocBody = z.infer<typeof WriteContextDocBody>;
+
+// Upload lands in the currently-displayed root; `path` is the target within it.
+export const UploadContextDocBody = z.object({
+  path: z.string().min(1),
+  content: z.string(),
+  overwrite: z.boolean().optional(),
+});
+export type UploadContextDocBody = z.infer<typeof UploadContextDocBody>;
+
+export const CreateContextFolderBody = z.object({
+  path: z.string().min(1),
+});
+export type CreateContextFolderBody = z.infer<typeof CreateContextFolderBody>;
+
+// Returned by the doc write/upload routes: the written/updated doc, including
+// its freshly computed `hash`.
+export const ContextWriteResult = z.object({
+  doc: ProjectContextDoc,
+});
+export type ContextWriteResult = z.infer<typeof ContextWriteResult>;
+
+// Returned by the folder-create route.
+export const ContextFolderResult = z.object({
+  ok: z.literal(true),
+});
+export type ContextFolderResult = z.infer<typeof ContextFolderResult>;
+
 // ---- Conformance ----
 export const ConformanceStatus = z.enum(['implemented', 'missing', 'out_of_scope']);
 export type ConformanceStatus = z.infer<typeof ConformanceStatus>;
@@ -29,14 +107,40 @@ export type Conformance = z.infer<typeof Conformance>;
 export const OnboardingLink = z.object({
   label: z.string(),
   path: z.string(),
+  // Grounded, fact-derived complexity band for the "First tasks" card badge —
+  // computed server-side from a real import-graph signal (file_rank percentile
+  // relative to the other fact-referenced files), never from list position.
+  // `null`/absent when the path isn't present in the repo-intel graph.
+  complexity: z.enum(['low', 'medium', 'high']).nullish(),
 });
 export type OnboardingLink = z.infer<typeof OnboardingLink>;
+
+// Node/edge JSON diagram (D7) — replaces an earlier mermaid-string design.
+// Rendered client-side as inline SVG (no mermaid runtime, CSP-safe). Present
+// ONLY on the `architecture` section; `null`/absent on the other four kinds.
+export const OnboardingDiagram = z.object({
+  nodes: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      kind: z.string().nullish(),
+    }),
+  ),
+  edges: z.array(
+    z.object({
+      from: z.string(),
+      to: z.string(),
+      label: z.string().nullish(),
+    }),
+  ),
+});
+export type OnboardingDiagram = z.infer<typeof OnboardingDiagram>;
 
 export const OnboardingSection = z.object({
   kind: z.string(),
   title: z.string(),
   body: z.string(), // markdown
-  diagram: z.string().nullish(), // mermaid
+  diagram: OnboardingDiagram.nullish(), // node/edge JSON, architecture-only
   links: z.array(OnboardingLink),
 });
 export type OnboardingSection = z.infer<typeof OnboardingSection>;
@@ -45,6 +149,25 @@ export const Onboarding = z.object({
   sections: z.array(OnboardingSection),
 });
 export type Onboarding = z.infer<typeof Onboarding>;
+
+// Why a tour fell back to the deterministic skeleton (AC-5): `index_degraded`
+// when the repo-intel index isn't usable, `generation_failed` when the single
+// structured LLM call threw. Never surfaced as a hard error — always HTTP 200.
+export const OnboardingDegradedReason = z.enum(['index_degraded', 'generation_failed']);
+export type OnboardingDegradedReason = z.infer<typeof OnboardingDegradedReason>;
+
+// Response contract for `GET /repos/:id/onboarding` and
+// `POST /repos/:id/onboarding/regenerate`. `fileCount` backs the header's
+// "generated from index of N files" line; `reason` is set only when
+// `degraded` is true.
+export const OnboardingResponse = z.object({
+  tour: Onboarding,
+  generatedAt: z.string(),
+  degraded: z.boolean(),
+  reason: OnboardingDegradedReason.nullish(),
+  fileCount: z.number().int(),
+});
+export type OnboardingResponse = z.infer<typeof OnboardingResponse>;
 
 // ---- Eval ----
 export const EvalPerTrace = z.object({
@@ -128,6 +251,7 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  context_paths: ContextPaths.nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
 
@@ -146,6 +270,7 @@ export const UpdateSkillBody = z.object({
   type: SkillType.optional(),
   body: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
+  context_paths: ContextPaths.optional(),
 });
 export type UpdateSkillBody = z.infer<typeof UpdateSkillBody>;
 
@@ -225,6 +350,7 @@ export const Agent = z.object({
   // agent's review prompt. Default on; gated again by the global flag.
   repo_intel: z.boolean().default(true),
   skill_count: z.number().int().optional(),
+  context_paths: ContextPaths.nullish(),
 });
 export type Agent = z.infer<typeof Agent>;
 
@@ -249,6 +375,7 @@ export const AgentVersionConfig = z.object({
   ci_fail_on: CiFailOn,
   repo_intel: z.boolean(),
   skills: z.array(z.string()),
+  context_paths: ContextPaths.nullish(),
 });
 export type AgentVersionConfig = z.infer<typeof AgentVersionConfig>;
 

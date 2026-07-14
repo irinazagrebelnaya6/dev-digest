@@ -144,3 +144,54 @@ export const PrBrief = z.object({
   history: PrHistory,
 });
 export type PrBrief = z.infer<typeof PrBrief>;
+
+// ---- Why + Risk Brief (SPEC-04) ----
+// A new SIBLING shape next to `PrBrief` above — persisted as its OWN `brief`
+// key in the same `pr_brief.json` composite (D1). The existing `Risk`/`Risks`/
+// `PrBrief` shapes are intentionally left untouched by this addition.
+
+/** One flagged risk: a short description plus a link to a real file or endpoint. */
+export const BriefRisk = z.object({
+  description: z.string(),
+  link: z.string(),
+});
+export type BriefRisk = z.infer<typeof BriefRisk>;
+
+/** One ordered "look here first" pointer: a label plus a link to a real file. */
+export const BriefFocus = z.object({
+  label: z.string(),
+  link: z.string(),
+});
+export type BriefFocus = z.infer<typeof BriefFocus>;
+
+export const Brief = z.object({
+  what: z.string(),
+  why: z.string(),
+  risk_level: RiskSeverity,
+  risks: z.array(BriefRisk),
+  // Ordered "review this first" list — server order is authoritative, never
+  // re-sorted by the client (mirrors Smart Diff's group-order convention).
+  review_focus: z.array(BriefFocus),
+  // True when `generated_for_sha` no longer matches the PR's current head
+  // SHA (D5); mirrored onto the `BriefResponse` envelope's top-level `stale`
+  // for the UI badge. No auto-regeneration — read-time derivation only.
+  stale: z.boolean().nullish(),
+  generated_for_sha: z.string().nullish(),
+  // Degrade-not-error (AC-8, AC-16): a non-empty brief is still returned when
+  // an input signal is missing/degraded or the single LLM call fails.
+  // `reason` carries an honest note, e.g. 'generation_failed'.
+  degraded: z.boolean().nullish(),
+  reason: z.string().nullish(),
+});
+export type Brief = z.infer<typeof Brief>;
+
+// Response contract for `GET /pulls/:id/brief` and
+// `POST /pulls/:id/brief/regenerate` (mirrors `OnboardingResponse`'s
+// envelope). `stale` is surfaced at the envelope level for the UI badge and
+// also mirrored onto `Brief.stale` for the persisted slice.
+export const BriefResponse = z.object({
+  brief: Brief,
+  generatedAt: z.string(),
+  stale: z.boolean(),
+});
+export type BriefResponse = z.infer<typeof BriefResponse>;

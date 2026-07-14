@@ -42,6 +42,41 @@ export {
 // Citation grounding — the mandatory mechanical gate for diff findings.
 export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
 
+// Onboarding Tour — narration prompt (rendered system template + zero-LLM
+// repo facts → single structured-call message pair). Pure; caller resolves
+// the model, grounds the output against the facts, and persists the result.
+export {
+  buildOnboardingPrompt,
+  type BuildOnboardingPromptInput,
+  type OnboardingFacts,
+  type OnboardingRankedFileFact,
+  type OnboardingCriticalPathFact,
+  type OnboardingEndpointFact,
+  type OnboardingPackageJsonFact,
+} from './onboarding-prompt.js';
+
+// Project Context Folder — pure order/dedup helper for attached spec docs.
+export { orderContextSpecs } from './project-context.js';
+
+// Why + Risk Brief — single structured-call prompt (derived facts only: PR
+// intent, blast-radius map/summary, smart-diff group STATS, best-effort
+// linked-issue text, attached context specs → { what, why, risk_level,
+// risks[], review_focus[] }). NO diff hunks/patch text. Pure; caller
+// assembles `BriefFacts`, resolves the `risk_brief` feature model, grounds
+// the response against `allowedLinks`, and persists it.
+export {
+  buildBriefPrompt,
+  type BriefFacts,
+  type BriefIntentFact,
+  type BriefChangedSymbolFact,
+  type BriefCallerFact,
+  type BriefDownstreamFact,
+  type BriefBlastFact,
+  type BriefDiffFileStatFact,
+  type BriefDiffGroupFact,
+  type BriefLinkedIssueFact,
+} from './brief-prompt.js';
+
 // Structured-output helpers (Zod → JSON Schema + parse-with-repair).
 export {
   toJsonSchema,

@@ -1,0 +1,17 @@
+{
+  "name": "Onboarding Tour nav item opens the per-repo tour and renders all 5 sections",
+  "description": "From the seeded repo's PR list, click the 'Onboarding Tour' WORKSPACE nav item (D1) and confirm the /repos/:repoId/onboarding route renders the 'Onboarding for ...' heading plus the 5 canonical section headings, in order (Architecture / Critical paths / How to run locally / Guided reading path / First tasks). The seeded demo repo has no repo-intel index, so the tour degrades to the deterministic skeleton on first view (AC-5) — zero model calls, fully deterministic. Exercises the new per-repo Onboarding Tour route + nav wiring (AC-16), distinct from the existing top-level /onboarding Add-Repo screen covered by 06.",
+  "steps": [
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "root redirects to the seeded repo's PR list" },
+    { "cmd": ["find", "text", "Onboarding Tour", "click"], "label": "click the Onboarding Tour nav item" },
+    { "cmd": ["wait", "--url", "/onboarding"], "label": "navigate to the per-repo onboarding route" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "onboarding tour data settles" },
+    { "cmd": ["wait", "--text", "Onboarding for"], "label": "the tour heading renders for the active repo" },
+    { "cmd": ["wait", "--text", "Architecture"], "label": "Architecture section heading renders" },
+    { "cmd": ["wait", "--text", "Critical paths"], "label": "Critical paths section heading renders" },
+    { "cmd": ["wait", "--text", "How to run locally"], "label": "How to run locally section heading renders" },
+    { "cmd": ["wait", "--text", "Guided reading path"], "label": "Guided reading path section heading renders" },
+    { "cmd": ["wait", "--text", "First tasks"], "label": "First tasks section heading renders" }
+  ]
+}

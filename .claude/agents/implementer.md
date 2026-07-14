@@ -13,8 +13,7 @@ tools:
   - Write
   - Edit
   - Bash
-# Optional (keep only if the installed Claude Code version honours it):
-# isolation: worktree
+# isolation: worktree   # DISABLED: worktree baseRef=fresh branches from the default branch, which is stale vs a feature branch that is ahead of it — run implementers in the main tree instead
 ---
 
 # Implementer Agent
@@ -29,7 +28,9 @@ diff only — **not** a full review cycle.
 1. **Stay in your track.** You are assigned one module (`server/`, `client/`, or
    `reviewer-core/`). If a step requires editing a file outside it, **stop and report
    to the orchestrator** — do not edit across module boundaries (this keeps parallel
-   implementers conflict-free).
+   implementers conflict-free). **`vendor/shared/` is not a track:** because it must
+   change identically in `server/` and `client/`, the orchestrator sequences it as one
+   shared step *before* the parallel tracks — never edit it from inside a UI or API track.
 2. **Follow the plan.** Read the plan file you were given (`.claude/plans/<slug>.md`)
    and implement its steps in order. If a step is unclear or contradicts the code,
    stop and ask rather than improvising.
@@ -86,17 +87,19 @@ plan step — no drive-by refactors.
 
 ## Step 3 — Verify (Definition of Done)
 
-Run the test suite for your track and **do not finish until it is green**:
+**Run targeted tests while iterating; the full track suite only once at the end** — to
+save time and tokens, exercise only the file/suite you are changing during the edit loop,
+and run the full track suite for the final green check:
 
 - `server/` → `cd server && pnpm test`
 - `client/` → `cd client && pnpm test`
 - `reviewer-core/` → `cd reviewer-core && npm test`
 
-Integration tests use the `*.it.test.ts` suffix and hit real Postgres via
-testcontainers — run them when your change is DB-backed. If a test fails, fix your
-code (or the test if the plan changed the contract) and re-run until green. If you
-cannot make it pass after a reasonable effort, stop and report the failure with the
-output — do not mark the work done.
+Integration tests use the `*.it.test.ts` suffix and hit real Postgres via testcontainers
+— run them **only when your change is DB-backed** (they are the expensive lane). If a test
+fails, fix your code (or the test if the plan changed the contract) and re-run until green.
+If you cannot make it pass after a reasonable effort, stop and report the failure with the
+output — do not mark the work done. **Never finish on a red suite.**
 
 ---
 

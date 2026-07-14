@@ -41,9 +41,10 @@ export const PromptAssembly = z.object({
   skills: z.string().nullish(),
   memory: z.string().nullish(),
   specs: z.string().nullish(),
-  /** Callers-of-changed-symbols digest (repo-intel); null when absent. */
+  /** Callers-of-changed-symbols digest (T1.3); null when absent. */
   callers: z.string().nullish(),
-  /** Repo skeleton / map (repo-intel); null when absent. */
+  /** Repo skeleton / map (T3); null when absent. Enables per-slot token
+      attribution in the run trace. */
   repo_map: z.string().nullish(),
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
@@ -82,6 +83,8 @@ export const RunTrace = z.object({
   raw_output: z.string(),
   memory_pulled: z.array(MemoryPulled),
   specs_read: z.array(z.string()),
+  /** Per-doc token sizes for injected project-context docs (additive; optional). */
+  specsReadTokens: z.array(z.object({ path: z.string(), tokens: z.number().int() })).nullish(),
   log: z.array(RunLogLine),
 });
 export type RunTrace = z.infer<typeof RunTrace>;
