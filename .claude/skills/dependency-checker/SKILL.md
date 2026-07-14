@@ -37,6 +37,8 @@ No `npm install` needed — it's plain Node (builtins only), runs in well under 
 
 The output has, in order: an **executive summary** (one row per package — score /100, size, findings count, top-priority action — plus a Mermaid `xychart-beta` bar chart of scores), a repo-level overview (one Mermaid diagram, one node per package, sized/colored by total footprint), then **one section per `package.json`** (its header now also carries that package's score) with its own top-N Mermaid diagram + table + "possibly unused" list + (if `--outdated`) an outdated table, then a repo-wide **duplicate versions** section, then a **"same version, different install" (dual-package-hazard)** section, then a **prioritized action list**.
 
+When you write up the reply (not the raw script output), open with a **Scope** line naming exactly which `package.json` files were discovered and analyzed — the developer reading this needs to know at a glance whether the whole repo was covered or just a subset (e.g. a `--root` scoped to one package).
+
 The **score** (0–100) measures cleanliness, not size — it starts at 100 and is docked for the same findings that drive the action list: possibly-unused deps (-20 each, capped -60), duplicate versions involving that package (-10 each, capped -30), same-version-different-install hazards involving that package (-15 each, capped -30), outdated packages if `--outdated` was run (-4 each, capped -20). A package with no findings scores 100 regardless of how heavy its dependencies are — `next` or `typescript` being large doesn't cost points, since there's no fix for that. Labels: ≥90 Excellent · ≥75 Good · ≥50 Needs attention · <50 Poor.
 
 **"Same version, different install" is a distinct, more dangerous check than the plain duplicate-version one.** Duplicate-version detection compares resolved version *strings*; it says nothing about whether two packages that happen to match still hold the same physical file. This second check compares device+inode of each dependency's `package.json` after resolving symlinks, so it catches the case a version diff can't: two packages report the identical version, but one is npm-installed (a genuinely separate copy) while another is pnpm-installed (hardlinked into pnpm's shared store) — or any other case where the underlying bytes have quietly diverged from a shared copy. This matters because identity-based checks in JS (`instanceof SomeError`, branded types, `Symbol` comparisons) silently break the moment the two copies drift apart, with no version-mismatch warning to catch it — the versions matched right up until they didn't. Do not conflate this with the plain duplicate-version section when explaining it to the user; it is worth calling out even when all versions currently match.
@@ -50,6 +52,7 @@ Don't just paste the raw report back — synthesize it for the developer. The re
 - **Duplicate versions** are worth a sentence on *why* it matters even if pnpm's content-addressable store means the disk cost is often shared (see Known Limitations) — the real risk is usually behavioral drift (two different versions of the same library active in the same process), not raw bytes.
 - **"Same version, different install" findings deserve more urgency than plain duplicates, not less** — the matching version number can read as reassuring ("at least they're in sync"), but it's the opposite: nothing is actively keeping them in sync, and there's no version-mismatch signal left to warn anyone when they do drift. If the report's cluster description shows a mix of shared and solo copies (e.g. two packages sharing one pnpm-hardlinked copy, one other on its own npm-installed copy), name the odd one out specifically — that's the package whose install setup (usually the wrong package manager, or missing from a pnpm workspace) is the actual thing to fix.
 - If `--outdated` wasn't run and the user is asking about staleness, say you can run it (and that it needs network) rather than guessing versions.
+- **Tag every action-list item with a severity tier** (see Severity tiers below) — an unranked bullet list forces the reader to re-derive priority themselves, which is exactly the synthesis work this step exists to do.
 
 ### Step 4 — Present the diagram
 
@@ -59,6 +62,8 @@ Embed the generated Mermaid code block(s) directly in your reply (don't redraw t
 
 ```
 # Dependency Report
+## Scope
+  Analyzed: client/, server/, reviewer-core/, e2e/ (or whichever subset --root covered)
 **N package(s) analyzed** · **X MB** total footprint.
 ## Executive summary
   | Package | Score | Size | Findings | Top priority |
@@ -74,8 +79,11 @@ Embed the generated Mermaid code block(s) directly in your reply (don't redraw t
 ## Same version, different install (dual-package-hazard risk)
   | Package | Version | Who shares a copy, who doesn't |
 ## Prioritized action list
-  1. Remove `x` — unused (N MB)
-  2. Dedupe/pin `y` — N versions in play
+  P0 — `x` same-version-different-install hazard: ... (dual-package-hazard risk)
+  P1 — Remove `x` — unused (N MB)
+  P1 — Dedupe/pin `y` — N versions in play
+  P2 — `z` is outdated (only when --outdated ran)
+  Info — `w` is large but has no lighter alternative; no action needed
   ...
 ```
 
@@ -89,6 +97,17 @@ Embed the generated Mermaid code block(s) directly in your reply (don't redraw t
 | 🟢 small | < 1 MB | Noise |
 
 Thresholds live as constants (`TIERS`) at the top of `scripts/analyze-deps.mjs` — change them there if a repo's scale warrants different cutoffs.
+
+## Severity tiers
+
+The prioritized action list groups every item under one of these — mirrors the scoring deductions above, so severity and score stay consistent with each other:
+
+| Tier | Maps to | Meaning |
+|---|---|---|
+| **P0** | Same-version-different-install hazard (-15/pkg) | Silently drifting copies, no version-mismatch signal to catch it — fix first |
+| **P1** | Possibly-unused (-20/pkg) or duplicate versions (-10/pkg) | Real cost or real drift risk, confirmed cheap to act on |
+| **P2** | Outdated (-4/pkg, only when `--outdated` ran) | Worth scheduling, not urgent |
+| **Info** | No finding, or a heavy dependency with no lighter alternative | Nothing to fix — named so the reader doesn't waste time chasing it |
 
 ## Known limitations (read before trusting the numbers)
 
