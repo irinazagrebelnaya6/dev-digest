@@ -65,6 +65,15 @@ export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<
     permissionMode: "bypassPermissions", // safe: evals only read/plan and tools are allow-listed
     systemPrompt,
     allowedTools,
+    // `allowedTools` only auto-approves permission PROMPTS — under bypassPermissions (which skips
+    // prompting entirely) it does nothing to restrict what tools the model can call. `tools` is the
+    // field that actually sets the base set of available built-in tools (the SDK docs say so
+    // explicitly: "To restrict which tools are available, use the `tools` option instead"). Without
+    // this, every workflowTask/agentTask case silently had the FULL default tool set — including
+    // Bash/Write/Edit — regardless of what its allow-list said. Mirror allowedTools here so the
+    // read-only allow-lists in config.ts (WORKFLOW_ALLOWED_TOOLS) and artifacts/load.ts
+    // (agentTools()) are actually enforced, not just documented.
+    tools: allowedTools,
     cwd: opts.cwd ?? REPO_ROOT,
     // Default: do NOT load on-disk config — isolates the injected artifact. workflowTask overrides.
     settingSources: opts.settingSources ?? [],
