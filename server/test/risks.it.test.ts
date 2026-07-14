@@ -95,7 +95,10 @@ d('Risk Areas: POST/GET /pulls/:id/risks (Testcontainers pg)', () => {
       db: pg.handle.db,
       overrides: {
         git: new MockGitClient({ diff: DIFF }),
-        llm: { openai: new MockLLMProvider('openai', { structured }) },
+        // risk_brief's registry default is openrouter/z-ai/glm-5.1 (server/src/vendor/shared/
+        // contracts/platform.ts) — the mock must be registered under the same provider key
+        // resolveFeatureModel() will actually resolve to.
+        llm: { openrouter: new MockLLMProvider('openrouter', { structured }) },
       },
     });
   }

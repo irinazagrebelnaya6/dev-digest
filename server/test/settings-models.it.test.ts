@@ -52,8 +52,8 @@ d('Settings: feature models + secrets status (Testcontainers pg)', () => {
     });
     // An unset feature still resolves to its own registry default.
     expect(await resolveFeatureModel(app.container, workspaceId, 'risk_brief')).toEqual({
-      provider: 'openai',
-      model: 'gpt-4.1',
+      provider: 'openrouter',
+      model: 'z-ai/glm-5.1',
     });
 
     await app.close();
