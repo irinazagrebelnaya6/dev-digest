@@ -33,6 +33,10 @@ export const NAV: NavGroup[] = [
       { key: "agents", label: "Agents", icon: "Cpu", href: "/agents", gKey: "a" },
       { key: "skills", label: "Skills", icon: "FlaskConical", href: "/skills", gKey: "s" },
       { key: "conventions", label: "Conventions", icon: "ListChecks", href: "/repos/:repoId/conventions", gKey: "v" },
+      // key MUST be "eval" (not "evals") — matches `activeKeyFor()` in
+      // client/src/components/app-shell/helpers.ts, which already does
+      // `pathname.startsWith("/eval") → "eval"` (pre-wired for this feature).
+      { key: "eval", label: "Evals", icon: "Gauge", href: "/evals", gKey: "e" },
     ],
   },
 ];
@@ -66,6 +70,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: "g a", label: "Go to Agents", group: "Navigation" },
   { keys: "g s", label: "Go to Skills", group: "Navigation" },
   { keys: "g v", label: "Go to Conventions", group: "Navigation" },
+  { keys: "g e", label: "Go to Eval Dashboard", group: "Navigation" },
   { keys: "j / k", label: "Next / previous finding", group: "Findings" },
   { keys: "a", label: "Accept finding", group: "Findings" },
   { keys: "d", label: "Dismiss finding", group: "Findings" },

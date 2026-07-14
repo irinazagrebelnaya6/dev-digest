@@ -1,5 +1,5 @@
 export type { Severity, Category, ButtonProps } from "./tokens";
-export { SEV, CAT } from "./tokens";
+export { SEV, CAT, EVAL_METRIC_COLOR } from "./tokens";
 export { Button } from "./Button";
 export { IconBtn } from "./IconBtn";
 export { Badge, SeverityBadge, CategoryTag } from "./Badge";

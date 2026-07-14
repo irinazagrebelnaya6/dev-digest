@@ -8,6 +8,7 @@ import type {
   Provider,
   ReviewStrategy,
 } from '@devdigest/shared';
+import { AgentVersionConfig } from '@devdigest/shared';
 import { AgentsRepository } from './repository.js';
 import { toAgentDto, toAgentVersionDto } from './helpers.js';
 
@@ -70,8 +71,17 @@ export class AgentsService {
     return row ? toAgentDto(row) : undefined;
   }
 
-  /** Delete an agent (and its versions/skill-links, via cascade). */
+  /**
+   * Delete an agent (and its versions/skill-links, via cascade). AC-25 (SPEC-05):
+   * an agent's `eval_cases` (owner_kind='agent') have NO DB-level FK to `agents`
+   * (polymorphic owner_id, disambiguated by owner_kind) so nothing cascades
+   * automatically — cascade-delete them explicitly BEFORE the agent row, so no
+   * orphaned eval data survives. `eval_runs` for those cases cascade
+   * automatically via the existing `eval_runs.case_id -> eval_cases.id`
+   * DB-level FK once the cases are gone.
+   */
   async delete(workspaceId: string, id: string): Promise<boolean> {
+    await this.container.evalRepo.deleteCasesForOwner(workspaceId, 'agent', id);
     return this.repo.deleteById(workspaceId, id);
   }
 
@@ -140,6 +150,60 @@ export class AgentsService {
     if (!agent) return undefined;
     const row = await this.repo.getVersion(agentId, version);
     return row ? toAgentVersionDto(row) : undefined;
+  }
+
+  /**
+   * Restore a previous config snapshot as the agent's LIVE config — mirrors
+   * `SkillsService.restore` (skills/service.ts) in spirit: fetch the snapshot,
+   * re-apply it so a NEW `agent_versions` row is appended (never mutating
+   * history). Backs SPEC-05's "Promote" action (AC-14, Q7).
+   *
+   * Restores skill LINKS too (the snapshot's `skills` ids), not just the scalar
+   * config fields, so the restore is faithful to what was actually running at
+   * that version. Two ordering/force requirements make this correct:
+   *  1. `setSkills` runs BEFORE the update's snapshot, so the new
+   *     `agent_versions` row captures the RESTORED skills (snapshotVersion reads
+   *     the agent's current links) — not the pre-restore ones.
+   *  2. `forceBump: true` guarantees a version bump + snapshot even when the
+   *     restored version differs from live ONLY in its skill set (all scalar
+   *     fields equal) — otherwise `isConfigChange` returns false and AC-14's
+   *     "a new snapshot is created, never mutating history" would be violated
+   *     while `setSkills` silently mutated the live skills.
+   */
+  async restoreVersion(
+    workspaceId: string,
+    agentId: string,
+    version: number,
+  ): Promise<Agent | undefined> {
+    const agent = await this.repo.getById(workspaceId, agentId);
+    if (!agent) return undefined;
+    const snapshot = await this.repo.getVersion(agentId, version);
+    if (!snapshot) return undefined;
+    const config = AgentVersionConfig.parse(snapshot.configJson);
+
+    // (1) restore skill links first, so the snapshot below captures them.
+    await this.repo.setSkills(agentId, config.skills);
+
+    // (2) force a bump + snapshot even for a skill-only difference.
+    const row = await this.repo.update(
+      workspaceId,
+      agentId,
+      {
+        provider: config.provider,
+        model: config.model,
+        systemPrompt: config.system_prompt,
+        outputSchema: config.output_schema,
+        strategy: config.strategy,
+        ciFailOn: config.ci_fail_on,
+        repoIntel: config.repo_intel,
+        ...(config.context_paths !== undefined && config.context_paths !== null
+          ? { contextPaths: config.context_paths }
+          : {}),
+      },
+      { forceBump: true },
+    );
+    if (!row) return undefined;
+    return { ...toAgentDto(row), skill_count: config.skills.length };
   }
 
   /** Linked skills for an agent as AgentSkillLink[] (ordered). */

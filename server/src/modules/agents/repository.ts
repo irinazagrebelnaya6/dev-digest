@@ -122,17 +122,26 @@ export class AgentsRepository {
   /**
    * Update an agent. Any config change bumps the version and snapshots the new
    * config into agent_versions (reproducibility for eval).
+   *
+   * `opts.forceBump` forces a version bump + snapshot even when no scalar
+   * config field changed — used by `restoreVersion` (SPEC-05 AC-14) so a
+   * restore whose ONLY difference from live is its SKILL set still appends a
+   * new `agent_versions` row (skill changes alone don't trip `isConfigChange`,
+   * which only sees scalar patch fields). The snapshot reads the agent's
+   * CURRENT skill links, so callers relying on `forceBump` to capture a new
+   * skill set must call `setSkills(...)` BEFORE this.
    */
   async update(
     workspaceId: string,
     id: string,
     patch: UpdateAgent,
+    opts: { forceBump?: boolean } = {},
   ): Promise<AgentRow | undefined> {
     const existing = await this.getById(workspaceId, id);
     if (!existing) return undefined;
 
     // A config-affecting change (anything except just toggling enabled) bumps version.
-    const configChanged = isConfigChange(existing, patch);
+    const configChanged = opts.forceBump === true || isConfigChange(existing, patch);
     const nextVersion = configChanged ? existing.version + 1 : existing.version;
 
     const [row] = await this.db

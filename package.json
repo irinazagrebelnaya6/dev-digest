@@ -2,6 +2,7 @@
   "name": "devdigest",
   "private": true,
   "scripts": {
-    "verify:l03": "bash scripts/verify-l03.sh"
+    "verify:l03": "bash scripts/verify-l03.sh",
+    "verify:l06": "bash scripts/verify-l06.sh"
   }
 }
