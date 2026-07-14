@@ -16,9 +16,15 @@
 # top-level `env:` from another job's `env:` — the `env` context isn't available inside an `env:`
 # key at all — so the models are computed as job OUTPUTS instead and every other job reads them
 # via `needs.detect.outputs.*`):
-#   - eval_model_content   — skills (content tier, no tools) + agents (tool tier, own Read/Grep/
-#     Glob only, no subagent dispatch). Just needs to be cheap and to follow instructions;
-#     deepseek/deepseek-chat is verified for this in evals/README.md's runner table.
+#   - eval_model_skills    — skills content tier (no tools, judge thresholds ~0.6-0.7). Just needs
+#     to be cheap and to follow instructions; deepseek/deepseek-chat is verified for this in
+#     evals/README.md's runner table.
+#   - eval_model_agents    — agents tool tier (own Read/Grep/Glob, no subagent dispatch, but
+#     threshold:1.0 cases that require exact output-format compliance — verbatim quotes, an
+#     explicit PASS/FAIL gate). Ran on deepseek first; it found both violations and named the
+#     right rule IDs but dropped the formatting requirements (4/6 practices), failing the 1.0 gate.
+#     google/gemini-2.5-flash instead — same model already proven capable enough for the harder
+#     workflow tier below.
 #   - eval_model_workflow  — the workflow tier's `dispatch` cases assert the model actually
 #     invokes the Task/Agent tool to hand off to a subagent. Of the models evals/README.md
 #     verifies, only google/gemini-2.5-flash reliably does that — deepseek and gpt-4.1-mini both
@@ -61,8 +67,10 @@ jobs:
       run_workflow: ${{ steps.detect.outputs.run_workflow }}
       skipped_skills: ${{ steps.detect.outputs.skipped_skills }}
       skipped_agents: ${{ steps.detect.outputs.skipped_agents }}
-      eval_model_content: ${{ steps.models.outputs.eval_model_content }}
-      eval_judge_model_content: ${{ steps.models.outputs.eval_judge_model_content }}
+      eval_model_skills: ${{ steps.models.outputs.eval_model_skills }}
+      eval_judge_model_skills: ${{ steps.models.outputs.eval_judge_model_skills }}
+      eval_model_agents: ${{ steps.models.outputs.eval_model_agents }}
+      eval_judge_model_agents: ${{ steps.models.outputs.eval_judge_model_agents }}
       eval_model_workflow: ${{ steps.models.outputs.eval_model_workflow }}
     steps:
       - uses: actions/checkout@v4
@@ -73,8 +81,10 @@ jobs:
         id: models
         run: |
           {
-            echo "eval_model_content=deepseek/deepseek-chat"
-            echo "eval_judge_model_content=google/gemini-2.5-flash"
+            echo "eval_model_skills=deepseek/deepseek-chat"
+            echo "eval_judge_model_skills=google/gemini-2.5-flash"
+            echo "eval_model_agents=google/gemini-2.5-flash"
+            echo "eval_judge_model_agents=google/gemini-2.5-flash"
             echo "eval_model_workflow=google/gemini-2.5-flash"
           } >> "$GITHUB_OUTPUT"
 
@@ -107,8 +117,8 @@ jobs:
         working-directory: evals
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      EVAL_MODEL: ${{ needs.detect.outputs.eval_model_content }}
-      EVAL_JUDGE_MODEL: ${{ needs.detect.outputs.eval_judge_model_content }}
+      EVAL_MODEL: ${{ needs.detect.outputs.eval_model_skills }}
+      EVAL_JUDGE_MODEL: ${{ needs.detect.outputs.eval_judge_model_skills }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -140,8 +150,8 @@ jobs:
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       OPENROUTER_BASE_URL: http://localhost:4000
-      EVAL_MODEL: ${{ needs.detect.outputs.eval_model_content }}
-      EVAL_JUDGE_MODEL: ${{ needs.detect.outputs.eval_judge_model_content }}
+      EVAL_MODEL: ${{ needs.detect.outputs.eval_model_agents }}
+      EVAL_JUDGE_MODEL: ${{ needs.detect.outputs.eval_judge_model_agents }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
