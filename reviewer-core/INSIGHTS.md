@@ -6,6 +6,8 @@
 
 ## What Works
 
+[2026-07-14] Mutation testing (Stryker, `stryker.config.mjs`, `npm run mutation`) is set up for `reviewer-core`. **Gotcha:** Stryker's vitest runner needs the test to import the mutated source **directly** (`../src/prompt.js`), NOT via the barrel (`../src/index.js`) — barrel-imported targets (`to-review.ts`, `run.ts`) report 0 kills even though instrumentation is active, because the runner can't map mutants back through the re-export. Mutate only direct-import modules, or add a direct-import test. First run on `prompt.ts`: 67 killed / 30 survived / 21 no-cov (56.78%). A surviving pair — `role: 'system'|'user'` → `role: ''` (prompt.ts:140/141) — revealed that every prompt test asserted `messages[0]/[1]` by POSITION and their `content`, but never the `role`; added a test pinning the roles (killed both → 58.47%). The message roles are load-bearing (a bad role = malformed chat request), so this was a real coverage gap, not an equivalent mutant.
+
 [2026-07-04] `formatFileList` (intent-prompt.ts) reconstructs the `@@ -oldStart,oldLines +newStart,newLines @@` header from `DiffHunk` fields instead of parsing `UnifiedDiff.raw`. This yields hunk *headers* without hunk *bodies* — exactly the cheap-classifier input the Intent Layer needs (title + files + hunk headers, no diff bodies). `DiffHunk` carries the numbers but NOT the raw header string, so reconstruction is the clean path.
 
 ## What Doesn't Work
