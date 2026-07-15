@@ -29,6 +29,30 @@ export const EvalCaseInput = z.object({
 });
 export type EvalCaseInput = z.infer<typeof EvalCaseInput>;
 
+// --- EvalExpectation (SPEC-05) ---
+/**
+ * Narrows `EvalCaseInput.expected_output` (kept `z.unknown()` at the base contract
+ * level — narrowing happens locally at the route, not here) to the concrete shape
+ * the match predicate (AC-7) and the case editor's expected-output editor (AC-20)
+ * validate against.
+ */
+export const EvalExpectation = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('must_find'),
+    file: z.string(),
+    start_line: z.number().int(),
+    end_line: z.number().int(),
+  }),
+  z.object({
+    type: z.literal('must_not_flag'),
+    file: z.string(),
+    start_line: z.number().int(),
+    end_line: z.number().int(),
+  }),
+]);
+export type EvalExpectation = z.infer<typeof EvalExpectation>;
+// --- end EvalExpectation ---
+
 /** A persisted eval run row (one execution of a case), returned by the API. */
 export const EvalRunRecord = z.object({
   id: z.string(),
@@ -70,9 +94,13 @@ export const EvalDashboard = z.object({
   owner_id: z.string().nullable(),
   cases_total: z.number().int(),
   current: z.object({
-    recall: z.number(),
-    precision: z.number(),
-    citation_accuracy: z.number(),
+    // Nullable per SPEC-05 AC-8/AC-9's "never 0/1" rule — a structurally-null
+    // metric (zero must_find / must_not_flag cases in the latest batch) stays
+    // null (rendered "—"), never flattened to 0. Kept byte-identical in both
+    // vendor copies (server + client) per the vendor-sync rule.
+    recall: z.number().nullable(),
+    precision: z.number().nullable(),
+    citation_accuracy: z.number().nullable(),
     traces_passed: z.number().int(),
     traces_total: z.number().int(),
     cost_usd: z.number().nullable(),

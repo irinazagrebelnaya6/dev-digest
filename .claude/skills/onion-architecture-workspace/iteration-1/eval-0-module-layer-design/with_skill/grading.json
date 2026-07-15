@@ -1,0 +1,20 @@
+{
+  "expectations": [
+    { "text": "D1: Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service", "passed": true, "evidence": "File layout shows server/src/modules/untested-touch/{domain,application,adapters}/... with domain/policy+entity+ports, application/two use cases, adapters/db+pulls+repo-intel+http." },
+    { "text": "D2: The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import", "passed": true, "evidence": "domain/untested-touch-policy.ts and domain/untested-touch-flag.entity.ts show plain TS classes/interfaces with zero framework imports; text states 'no Drizzle, no Fastify, no I/O'." },
+    { "text": "D3: The application/use-case class depends on a port/interface for persistence, not a concrete adapter class", "passed": true, "evidence": "ComputeUntestedTouchUseCase constructor takes PrChangedFilesPort, RepoFileIndexPort, UntestedTouchFlagRepository (all interfaces imported as types) plus a UntestedTouchPolicy default." },
+    { "text": "D4: Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself", "passed": true, "evidence": "Explicit 'Wiring into server/src/platform/container.ts' section shows `new PostgresUntestedTouchFlagRepository(db)` etc. constructed there and passed into the use cases." },
+    { "text": "D5: Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary", "passed": true, "evidence": "adapters/db/untested-touch.mapper.ts (toDomain/toRow) referenced and imported by the Postgres repository." },
+    { "text": "D6: Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB", "passed": true, "evidence": "'Test doubles' section adds mockUntestedTouchFlagRepository, mockPrChangedFilesPort, mockRepoFileIndexPort to server/src/adapters/mocks.ts." }
+  ],
+  "summary": { "passed": 6, "failed": 0, "total": 6, "pass_rate": 1.0 },
+  "timing": { "executor_duration_seconds": 201.2 },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "This answer never looked at the actual codebase (4 tool calls) — it applied the skill's textbook layered template faithfully but didn't check whether recent, comparable modules (Blast, Brief) actually use that structure, or whether the 'no new tables' rule pushes persistence into the existing pr_brief jsonb blob rather than new columns. The without-skill baseline did that research and reached a different, precedent-matching design. A stronger version of this eval would also assert whether the model checked recent precedent before proposing a structure, since 'textbook-correct' and 'consistent with this codebase' are not the same claim."
+      }
+    ],
+    "overall": "All 6 assertions pass, but see the cross-run note in benchmark.md — this eval doesn't distinguish 'applied the skill's structure' from 'grounded the structure in actual repo precedent,' and those two turned out to diverge on this exact task."
+  }
+}

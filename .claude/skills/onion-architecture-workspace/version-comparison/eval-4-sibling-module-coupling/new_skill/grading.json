@@ -1,0 +1,10 @@
+{
+  "expectations": [
+    { "text": "H1: Identifies that NotificationService imports/instantiates billing's concrete PostgresInvoiceRepository directly across the module boundary", "passed": true, "evidence": "Dedicated header \"Sibling-module coupling (Step 6 violation)\" with the exact import quoted and explained as reaching into another feature module's adapter internals." },
+    { "text": "H2: Explains the downside: notifications is now coupled to billing's storage internals and can't be tested or changed independently", "passed": true, "evidence": "\"breaks if billing changes its storage details... can't be unit-tested without billing's real adapter/DB... row shape is billing's private representation, not a contract billing has agreed to expose.\"" },
+    { "text": "H3: Proposes a fix that goes through billing's own public surface instead of importing modules/billing/adapters/db/* from outside billing", "passed": true, "evidence": "Defines the port at modules/billing/domain/invoice-repository.port.ts — i.e. billing itself owns and publishes the contract; notifications only imports that port, never billing/adapters. Explicitly draws the parallel to this codebase's real container.reviewRepo precedent (added to Step 6's own example)." },
+    { "text": "H4: Provides a concrete corrected structure/code sketch, not just a description of the problem", "passed": true, "evidence": "Full corrected service.ts, billing-owned port, container.ts wiring, and mock code provided." }
+  ],
+  "summary": { "passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0 },
+  "timing": { "executor_duration_seconds": 91.7 }
+}

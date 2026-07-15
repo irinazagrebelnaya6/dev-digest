@@ -1,0 +1,16 @@
+{
+  "expectations": [
+    { "text": "H1: Identifies that NotificationService imports/instantiates billing's concrete PostgresInvoiceRepository directly across the module boundary", "passed": true, "evidence": "\"NotificationService lives in modules/notifications, but it reaches directly into modules/billing/adapters/db/... and instantiates that module's concrete Postgres adapter itself.\"" },
+    { "text": "H2: Explains the downside: notifications is now coupled to billing's storage internals and can't be tested or changed independently", "passed": true, "evidence": "\"can't be unit-tested without a real DB connection... coupled to billing's internal adapter structure — if billing refactors/renames PostgresInvoiceRepository, or swaps its storage engine, notifications breaks.\"" },
+    { "text": "H3: Proposes a fix that goes through billing's own public surface instead of importing modules/billing/adapters/db/* from outside billing", "passed": true, "evidence": "Defines a new OverdueInvoiceLookup port, but owned by notifications itself (modules/notifications/ports/...), which billing's concrete class happens to structurally satisfy — reaches the same outcome (service.ts no longer imports billing/adapters) via a consumer-owned port rather than a port billing itself publishes." },
+    { "text": "H4: Provides a concrete corrected structure/code sketch, not just a description of the problem", "passed": true, "evidence": "Full corrected service.ts, port, container.ts wiring, and mock code provided." }
+  ],
+  "summary": { "passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0 },
+  "timing": { "executor_duration_seconds": 58.4 },
+  "eval_feedback": {
+    "suggestions": [
+      { "reason": "The base model (even on the OLD skill snapshot, without an explicit sibling-module rule) already reasoned its way to the cross-module coupling issue via the general dependency-rule language in Steps 1-2 ('dependencies point inward') and the Step 3 'adapter instantiated inside a class' anti-pattern, which happens to apply regardless of whether the adapter belongs to the same or a different module. This means eval-4's H1/H2/H4 don't cleanly discriminate old vs. new skill — only H3 (which port to own) shows a real qualitative difference. Worth tightening H3 to explicitly require the port live under the *provider* module (billing), which only the new skill's answer does." }
+    ],
+    "overall": "4/4 on paper, but see H3 — the two fixes take structurally different approaches (consumer-owned vs provider-owned port) that this pass/fail framing doesn't fully capture. Blind comparison is where the real difference shows up."
+  }
+}

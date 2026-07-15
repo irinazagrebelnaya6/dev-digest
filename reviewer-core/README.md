@@ -23,10 +23,8 @@ flowchart LR
   GROUND --> OUT["Review<br/>verdict · score · grounded findings"]
 ```
 
-The grounding step is the mandatory gate: a finding that doesn't cite a real line
-in the diff is dropped, so the engine can't hallucinate locations. The score is
-recomputed deterministically from the **surviving** findings, not trusted from the
-model. `review/run.ts` orchestrates the run (single-pass by default).
+See [`docs/pipeline.md`](./docs/pipeline.md) for the full walkthrough of each stage,
+the injection guard, and the map-reduce opt-in path.
 
 The engine also accepts optional prompt slots the **course lessons** start
 feeding it — `skills` (L02), `memory` (L07), `specs` (L05), `callers` — plus a

@@ -1,0 +1,10 @@
+{
+  "expectations": [
+    { "text": "F1: Identifies that the use case constructs the concrete PostgresInvoiceRepository itself instead of receiving it via constructor injection", "passed": true, "evidence": "\"The adapter is instantiated inside the use case... constructor(db: Db) { this.repo = new PostgresInvoiceRepository(db); }\" flagged as the exact BAD example from the skill's Step 3." },
+    { "text": "F2: Explains the concrete downside: the use case can't be unit-tested without a real DB / breaks DI", "passed": true, "evidence": "\"Consequence: you can't unit-test IssueInvoiceUseCase without a real Postgres Db instance.\"" },
+    { "text": "F3: Proposes the use case depend on a port/interface type, injected via the constructor", "passed": true, "evidence": "Corrected IssueInvoiceUseCase: \"constructor(private readonly invoices: InvoiceRepository) {}\" with a new domain/invoice-repository.port.ts interface." },
+    { "text": "F4: Proposes wiring the concrete adapter at the composition root (container.ts) rather than inside the use case", "passed": true, "evidence": "\"Composition root — server/src/platform/container.ts (wiring moves here, per Step 3)\" with explicit wiring snippet." }
+  ],
+  "summary": { "passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0 },
+  "timing": { "executor_duration_seconds": 157.0 }
+}

@@ -1,0 +1,20 @@
+{
+  "eval_name": "review-fix",
+  "config": "without_skill",
+  "expectations": [
+    {"text": "B1: Flags z.any() and replaces it with a safer type (z.unknown / branded / proper primitive)", "passed": true, "evidence": "Problem #1 'z.any() disables validation entirely'; corrected `id: z.uuid()` (with Zod 3 alt z.string().uuid())."},
+    {"text": "B2: Flags the missing email validation and adds .email()", "passed": true, "evidence": "Problem #2 'z.string() does not validate an email'; corrected `email: z.email()` with `// Zod 3: z.string().email()`."},
+    {"text": "B3: Flags age typed as string and coerces/uses a number so schema matches the intended type", "passed": true, "evidence": "Problem #3 flags string-vs-number drift; corrected `age: z.number().int().min(0).max(150)` plus z.coerce.number() guidance."},
+    {"text": "B4: Flags role as a plain string and switches to z.enum", "passed": true, "evidence": "Problem #5 'role: z.string() allows any string'; corrected `role: z.enum(['user', 'admin', 'moderator'])`."},
+    {"text": "B5: Replaces the hand-written `User` type with z.infer<typeof UserSchema>", "passed": true, "evidence": "Problem #4 flags the hand-maintained type; corrected `export type User = z.infer<typeof UserSchema>`."},
+    {"text": "B6: Recommends safeParse (+ error handling) over parse for the untrusted `body: unknown`", "passed": true, "evidence": "Problem #6 flags `.parse()`; corrected handler uses `UserSchema.safeParse(body)` and returns a structured error result."},
+    {"text": "B7: Provides corrected, coherent code implementing the fixes", "passed": true, "evidence": "Complete corrected block implementing all fixes; coherent, though it leads with Zod 4 APIs (z.uuid(), z.email(), z.treeifyError()) as primary with Zod 3 alternatives in comments — the repo pins Zod v3.24, so the primary code would not run as-is, but it is internally coherent and the fixes are correct."}
+  ],
+  "summary": {"passed": 7, "failed": 0, "total": 7, "pass_rate": 1.0},
+  "eval_feedback": {
+    "suggestions": [
+      {"assertion": "B7: Provides corrected, coherent code implementing the fixes", "reason": "B7 passes for both configs even though the without_skill code leads with Zod 4 helpers (z.uuid, z.email, z.treeifyError) that break against the repo's pinned Zod v3.24. Consider an assertion that the corrected code targets the project's installed Zod version, which would discriminate the skill's version-awareness."}
+    ],
+    "overall": "Baseline hit all 7 assertions. The only real gap vs with_skill (defaulting to Zod 4 APIs against a v3.24 project) is not captured by any assertion."
+  }
+}

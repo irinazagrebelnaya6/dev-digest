@@ -1,0 +1,17 @@
+{
+  "eval_name": "schema-authoring",
+  "config": "without_skill",
+  "expectations": [
+    {"text": "A1: Parses the untrusted body with safeParse (NOT parse)", "passed": true, "evidence": "`const result = signupSchema.safeParse(request.body)` with branch on `!result.success`; no `.parse()`."},
+    {"text": "A2: Coerces the form-string age to a number (z.coerce.number / z.preprocess) rather than z.number() on a string", "passed": true, "evidence": "`age: z.coerce.number({...}).int().min(18).max(120)` with note that z.coerce.number runs Number() before validating."},
+    {"text": "A3: Models role as z.enum([...]) not a plain z.string()", "passed": true, "evidence": "`role: z.enum(['admin', 'editor', 'viewer'], {...})` with note 'Do not use z.string() plus a manual check'."},
+    {"text": "A4: Validates email with .email() at the schema", "passed": true, "evidence": "`.email('Please enter a valid email address.')` chained on the email string schema."},
+    {"text": "A5: Derives the TS type via z.infer, not a hand-written interface", "passed": true, "evidence": "`export type SignupInput = z.infer<typeof signupSchema>` with note 'Infer the type from the schema so it can never drift'."},
+    {"text": "A6: Returns field-by-field errors via flatten() (or path-keyed issues), not a raw ZodError dump", "passed": true, "evidence": "`const { fieldErrors, formErrors } = result.error.flatten()`; example JSON shows per-field messages."},
+    {"text": "A7: Models bio with .optional() (and handles optional-vs-nullable correctly)", "passed": true, "evidence": "`bio: z.string().trim().max(500).optional()` and explicit 'Use .optional() (not .nullable()) because an absent form field is undefined, not null'."}
+  ],
+  "summary": {"passed": 7, "failed": 0, "total": 7, "pass_rate": 1.0},
+  "eval_feedback": {
+    "overall": "Baseline hit all 7 assertions cleanly. Difference vs with_skill is presentation only (no repo version pinning, no rule citations); every checked outcome is present."
+  }
+}

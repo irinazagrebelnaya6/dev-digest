@@ -1,0 +1,11 @@
+{
+  "eval_id": 3,
+  "eval_name": "controller-bypasses-use-case",
+  "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/adapters/http/invoices.routes.ts\nimport type { FastifyInstance } from 'fastify';\nimport type { ZodTypeProvider } from 'fastify-type-provider-zod';\nimport { getContext } from '../../../_shared/context.js';\nimport { PostgresInvoiceRepository } from '../db/postgres-invoice.repository.js';\nimport { IdParams } from '../../../_shared/schemas.js';\n\nexport default async function invoicesRoutes(appBase: FastifyInstance) {\n  const app = appBase.withTypeProvider<ZodTypeProvider>();\n  const repo = new PostgresInvoiceRepository(app.container.db);\n\n  app.get('/invoices/:id', { schema: { params: IdParams } }, async (req) => {\n    const { workspaceId } = await getContext(app.container, req);\n    const row = await repo.findRowById(workspaceId, req.params.id);\n    return row;\n  });\n\n  app.post('/invoices/:id/pay', { schema: { params: IdParams } }, async (req, reply) => {\n    const { workspaceId } = await getContext(app.container, req);\n    const row = await repo.findRowById(workspaceId, req.params.id);\n    if (!row) {\n      reply.status(404);\n      return { error: 'not found' };\n    }\n    await repo.updateStatus(workspaceId, req.params.id, 'paid');\n    reply.status(204);\n  });\n}\n```\n\nFor context, elsewhere in this codebase `Invoice.markPaid()` throws if the invoice status is `'void'`.",
+  "assertions": [
+    { "id": "G1", "text": "Identifies that the route handler calls the repository directly instead of going through an application/use-case layer" },
+    { "id": "G2", "text": "Identifies that the void-invoice invariant (Invoice.markPaid()) is bypassed because the route updates the row directly, i.e. flags the resulting reachable bug, not just the structural smell" },
+    { "id": "G3", "text": "Identifies that the raw DB row is returned directly from the GET endpoint instead of a mapped DTO/domain-shaped response" },
+    { "id": "G4", "text": "Proposes concrete restructuring: a use case that the route calls, with domain rule enforcement and mapping at the boundary" }
+  ]
+}

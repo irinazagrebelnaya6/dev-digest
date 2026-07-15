@@ -72,7 +72,9 @@ cd reviewer-core && npm test
 ## Read when...
 - Architecture + flow diagrams → `README.md`
 - API request lifecycle + DI diagram → `server/README.md`
-- Review engine pipeline → `reviewer-core/README.md`
+- Review engine pipeline → `reviewer-core/docs/pipeline.md`
 - Code indexer pipeline → `server/src/modules/repo-intel/README.md`
 - Test strategy (unit / integration / e2e split) → `TESTING.md`
 - Per-package docs and specs → `docs/<package>/README.md`
+- API/route contract conventions → `docs/server/api-contracts.md`
+- Hit unexpected behavior in a package → `<package>/INSIGHTS.md` (Recurring Errors & Fixes)

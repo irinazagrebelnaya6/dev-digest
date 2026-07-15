@@ -1,0 +1,38 @@
+{
+  "skill_name": "zod",
+  "baseline": "without_skill (no skill; identical prompt)",
+  "evals": [
+    {
+      "id": 0,
+      "name": "schema-authoring",
+      "prompt": "In our Fastify + TypeScript app I'm accepting a POST body for user signup. Fields: `email`; `age` (arrives as a string from an HTML form); `role` which must be exactly one of admin/editor/viewer; and an optional `bio`. Write the Zod schema and the code that turns an untrusted request body into a typed value and returns friendly field-by-field errors to the client (not a raw error dump). Also give me the TypeScript type for the parsed value. Use Zod idiomatically.",
+      "expected_output": "A schema that: validates email with .email(); coerces the form-string age to a number (z.coerce.number / preprocess); models role as z.enum; models bio as optional; parses untrusted input with safeParse; returns field-level errors via flatten() (or path-keyed issues); and derives the TS type via z.infer rather than a hand-written interface.",
+      "files": [],
+      "assertions": [
+        {"id": "A1", "text": "Parses the untrusted body with safeParse (NOT parse)"},
+        {"id": "A2", "text": "Coerces the form-string age to a number (z.coerce.number / z.preprocess) rather than z.number() on a string"},
+        {"id": "A3", "text": "Models role as z.enum([...]) not a plain z.string()"},
+        {"id": "A4", "text": "Validates email with .email() at the schema"},
+        {"id": "A5", "text": "Derives the TS type via z.infer, not a hand-written interface"},
+        {"id": "A6", "text": "Returns field-by-field errors via flatten() (or path-keyed issues), not a raw ZodError dump"},
+        {"id": "A7", "text": "Models bio with .optional() (and handles optional-vs-nullable correctly)"}
+      ]
+    },
+    {
+      "id": 1,
+      "name": "review-fix",
+      "prompt": "Review this Zod code for best practices and fix it. Explain what's wrong and show the corrected version.\n\n```ts\nimport { z } from 'zod'\n\nexport const UserSchema = z.object({\n  id: z.any(),\n  email: z.string(),\n  age: z.string(),\n  role: z.string(),\n  tags: z.array(z.string()).optional(),\n})\n\nexport type User = {\n  id: string\n  email: string\n  age: number\n  role: string\n  tags?: string[]\n}\n\nexport function handleSignup(body: unknown) {\n  const user = UserSchema.parse(body)\n  return user\n}\n```",
+      "expected_output": "Flags: z.any() (use z.unknown or a proper type); email missing .email(); age typed as string but the manual type says number (coerce to number); role a plain string (use z.enum); the manual `User` type duplicating the schema (use z.infer); parse() on untrusted `body: unknown` (use safeParse + error handling). Provides corrected code.",
+      "files": [],
+      "assertions": [
+        {"id": "B1", "text": "Flags z.any() and replaces it with a safer type (z.unknown / branded / proper primitive)"},
+        {"id": "B2", "text": "Flags the missing email validation and adds .email()"},
+        {"id": "B3", "text": "Flags age typed as string and coerces/uses a number so schema matches the intended type"},
+        {"id": "B4", "text": "Flags role as a plain string and switches to z.enum"},
+        {"id": "B5", "text": "Replaces the hand-written `User` type with z.infer<typeof UserSchema>"},
+        {"id": "B6", "text": "Recommends safeParse (+ error handling) over parse for the untrusted `body: unknown`"},
+        {"id": "B7", "text": "Provides corrected, coherent code implementing the fixes"}
+      ]
+    }
+  ]
+}

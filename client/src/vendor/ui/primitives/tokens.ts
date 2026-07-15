@@ -21,6 +21,16 @@ export const CAT: Record<Category, { icon: IconName; label: string }> = {
   test: { icon: "FlaskConical", label: "test" },
 };
 
+/** Color tokens for the three eval metrics (SPEC-05) — recall = blue,
+ *  precision = green, citation accuracy = orange, reused across the Evals
+ *  tab, the Eval Dashboard, and the Compare-runs modal (matches the design's
+ *  blue/green/orange convention using existing theme vars, no new colors). */
+export const EVAL_METRIC_COLOR = {
+  recall: "var(--accent)",
+  precision: "var(--ok)",
+  citation_accuracy: "var(--warn)",
+} as const;
+
 export interface ButtonProps
   extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   kind?: "primary" | "secondary" | "tertiary" | "ghost" | "danger";

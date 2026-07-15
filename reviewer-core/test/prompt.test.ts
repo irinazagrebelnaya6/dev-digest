@@ -95,3 +95,17 @@ describe('assemblePrompt — ## PR intent & scope (Intent Layer)', () => {
     expect(sys).toMatch(/AT MOST ONE/);
   });
 });
+
+describe('assemblePrompt — chat message roles', () => {
+  // Kills two mutants that survived Stryker (prompt.ts:140/141 `role: 'system'|'user'`
+  // → `role: ''`): every existing test read `messages[0]`/`messages[1]` by POSITION and
+  // asserted only their `content`, never the `role`. An empty/wrong role produces a
+  // malformed chat request the provider rejects, so the roles are load-bearing and must
+  // be pinned, not just the order.
+  it('assigns role "system" to the first message and "user" to the second', () => {
+    const { messages } = assemblePrompt({ system: 'AGENT-SYS', diff: 'DIFF' });
+    expect(messages).toHaveLength(2);
+    expect(messages[0]!.role).toBe('system');
+    expect(messages[1]!.role).toBe('user');
+  });
+});

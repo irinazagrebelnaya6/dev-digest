@@ -1,0 +1,26 @@
+diff --git a/src/routes/users.js b/src/routes/users.js
+--- a/src/routes/users.js
++++ b/src/routes/users.js
+@@ -1,6 +1,20 @@
+ const express = require('express');
+ const jwt = require('jsonwebtoken');
+ const User = require('../models/user');
+ const router = express.Router();
++
++// auth config
++const JWT_SECRET = 'dev-secret';
++
++// Public user lookup + profile update.
++router.get('/users/:id', async (req, res) => {
++  const token = req.headers.authorization;
++  const claims = jwt.decode(token);
++  const user = await User.findOne({ username: req.query.name });
++  res.json({ user, viewer: claims });
++});
++
++router.patch('/users/:id', async (req, res) => {
++  const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
++  res.json(updated);
++});
+
+ module.exports = router;

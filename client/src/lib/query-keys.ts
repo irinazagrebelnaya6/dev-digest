@@ -48,4 +48,13 @@ export const queryKeys = {
   prSmartDiff: (prId: string | null | undefined) => ["pr-smart-diff", prId] as const,
   prBlast: (prId: string | null | undefined) => ["pr-blast", prId] as const,
   prBrief: (prId: string | null | undefined) => ["pr-brief", prId] as const,
+
+  // Evals (SPEC-05)
+  evalCases: (agentId: string | null | undefined) => ["eval-cases", agentId] as const,
+  evalCase: (id: string | null | undefined) => ["eval-case", id] as const,
+  agentEvalRuns: (agentId: string | null | undefined) => ["agent-eval-runs", agentId] as const,
+  evalDashboard: () => ["eval-dashboard"] as const,
+  agentEvalDashboard: (agentId: string | null | undefined) => ["agent-eval-dashboard", agentId] as const,
+  evalCompare: (a: string | null | undefined, b: string | null | undefined) =>
+    ["eval-compare", a, b] as const,
 } as const;

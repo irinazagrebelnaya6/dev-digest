@@ -13,6 +13,8 @@
 **`MockLLMProvider` lives in server** — `server/src/adapters/mocks.ts`. Tests import it from there.
 
 ## Read when...
-- Pipeline diagram + public API → `reviewer-core/README.md`
+- Pipeline deep-dive → `docs/pipeline.md`
+- Diagram + public API quick-reference → `reviewer-core/README.md`
 - Architecture decisions (grounding, TS source, map-reduce) → `docs/reviewer-core/README.md`
 - Implementation instructions → `docs/reviewer-core/INSTRUCTIONS.md`
+- Recurring errors already hit → `INSIGHTS.md` (Recurring Errors & Fixes)

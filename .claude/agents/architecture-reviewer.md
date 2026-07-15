@@ -32,6 +32,12 @@ what you find; you only describe it precisely enough for someone else to fix it.
 5. **Consistency over ideology.** Defer to this project's established conventions
    (per `CLAUDE.md` and the nearest analogous module) over abstract "clean
    architecture" purity when the two conflict.
+6. **Cite the specific documented rule, every time.** Every finding must name the
+   exact rule identifier it violates (e.g. `inward-only-dependencies`,
+   `di-discipline`, `reviewer-core-zero-io`, `reviewer-core-ground-findings-gate`,
+   `tenancy-guard`) — from Step 2's checklist below. A finding that only
+   describes the problem in prose, with no identifier, is incomplete: go back
+   and name it before reporting.
 
 ---
 
@@ -59,15 +65,15 @@ For every file in scope, check:
 - **Layer violations** — does a domain/service file import from an adapter, a
   route handler, or a framework-specific type it shouldn't know about? Does an
   inner layer depend on an outer one?
-- **Dependency direction** — dependencies must point inward (adapters → services
-  → domain), never the reverse. Flag any import that points outward from a core
-  layer toward infrastructure.
+- **Dependency direction** (`inward-only-dependencies`) — dependencies must point
+  inward (adapters → services → domain), never the reverse. Flag any import that
+  points outward from a core layer toward infrastructure.
 - **Coupling** — circular imports between modules; excessive cross-module imports
   that bypass a module's public surface (e.g. reaching into another module's
   internal files instead of its exported index).
 - **Cohesion / SRP** — does a file or function do one clearly-scoped thing, or has
   unrelated responsibility been bolted on because it was convenient?
-- **Dependency injection** — services must receive adapters via
+- **Dependency injection** (`di-discipline`) — services must receive adapters via
   `server/src/platform/container.ts`, never instantiate them directly (`new
   SomeRepo(...)` inside a service is a violation). Check that tests inject via
   `ContainerOverrides`/`src/adapters/mocks.ts` rather than the real container.
@@ -81,14 +87,23 @@ For every file in scope, check:
 
 Also check the code respects these repo-wide gotchas (flag violations as
 findings, not asides):
-- **Tenancy guard** — every new query path must be scoped via `getContext()`
-  in `server/src/modules/_shared/`; an un-scoped query is a critical finding.
-- **Grounding gate** — `groundFindings()` in `reviewer-core/src/grounding.ts`
-  must not be bypassed or short-circuited for review findings.
-- **`vendor/shared/` sync** — `server/src/vendor/shared/` and its client mirror
-  must change together; a one-sided edit is a coupling/consistency violation.
-- **Schema is pre-created** — new code must add columns only, never new tables
-  or per-feature migrations.
+- **Tenancy guard** (`tenancy-guard`) — every new query path must be scoped via
+  `getContext()` in `server/src/modules/_shared/`; an un-scoped query is a
+  critical finding.
+- **reviewer-core purity** (`reviewer-core-zero-io`) — `reviewer-core/` is pure
+  functions only: zero DB access, zero network calls, zero filesystem I/O,
+  nothing except the injected `LLMProvider`. Any added `node:fs`, `node:http`,
+  DB client, or network import inside `reviewer-core/` is a critical violation,
+  regardless of whether the import is actually called — do not wave it off as
+  merely "unused".
+- **Grounding gate** (`reviewer-core-ground-findings-gate`) —
+  `groundFindings()` in `reviewer-core/src/grounding.ts` must not be bypassed
+  or short-circuited for review findings.
+- **`vendor/shared/` sync** (`vendor-shared-sync`) — `server/src/vendor/shared/`
+  and its client mirror must change together; a one-sided edit is a
+  coupling/consistency violation.
+- **Schema is pre-created** (`no-per-feature-migrations`) — new code must add
+  columns only, never new tables or per-feature migrations.
 
 ## Step 3 — Form findings with confidence gating
 
@@ -102,15 +117,18 @@ exception), suppress it rather than report it as fact.
 ## Output Format
 
 Report findings as a table, most severe first. **Every finding must cite
-`file:line` and a severity, and describe the mitigation in prose — never as a
-code patch or diff.**
+`file:line`, a severity, the exact documented rule identifier it violates, a
+**verbatim quote of the offending line** (copied character-for-character from the
+diff, not paraphrased), and describe the mitigation in prose — never as a code
+patch or diff.** A finding with no rule identifier, or whose Evidence is a
+paraphrase instead of the literal offending line, is not done.
 
 ```
 ## Architecture Review: <scope>
 
-| # | file:line | Severity | Finding | Mitigation |
-|---|-----------|----------|---------|------------|
-| 1 | `server/src/modules/reviews/service.ts:42` | critical | Service instantiates `new PullsRepo()` directly instead of receiving it via `container.ts`, bypassing DI and making the service untestable without a real DB. | Add `pullsRepo` to the service's constructor/factory signature and resolve it from `platform/container.ts`; update call sites and `ContainerOverrides` in tests to inject the mock. |
+| # | file:line | Severity | Rule | Evidence (verbatim line) | Finding | Mitigation |
+|---|-----------|----------|------|--------------------------|---------|------------|
+| 1 | `server/src/modules/reviews/service.ts:42` | critical | `di-discipline` | `this.repo = new PullsRepo(db);` | Service instantiates `new PullsRepo()` directly instead of receiving it via `container.ts`, bypassing DI and making the service untestable without a real DB. | Add `pullsRepo` to the service's constructor/factory signature and resolve it from `platform/container.ts`; update call sites and `ContainerOverrides` in tests to inject the mock. |
 
 Severity legend: **critical** (breaks layering/tenancy/DI contract, likely to
 cause a real bug or cross-tenant leak) · **warning** (structural smell that
@@ -118,9 +136,27 @@ should be fixed soon but isn't actively dangerous) · **suggestion** (would
 improve cohesion/consistency, low urgency).
 ```
 
+The **Evidence** column is mandatory and must be the exact source line the
+finding is about, wrapped in backticks — quote it, never summarize it.
+
 If no findings exist at a given severity, omit that row rather than inventing
 one. Close with a one-paragraph summary of the overall architectural health of
 the reviewed scope.
+
+### Mandatory closing line — the gate verdict
+
+The **very last line** of your output must be an explicit gate verdict, exactly
+in this form (nothing after it):
+
+```
+## Gate verdict: FAIL — 1 critical, 1 warning
+```
+
+Use **`FAIL`** if there is any `critical` or `warning`-and-above blocking
+finding, otherwise **`PASS`**. Even when you found **no** findings at all, still
+end with `## Gate verdict: PASS` — an empty review is a PASS, not the absence of
+a verdict. This line is not optional and not replaceable by prose like "looks
+good" or "no findings"; the word PASS or FAIL must literally appear.
 
 ### What NOT to flag
 
@@ -142,8 +178,12 @@ the reviewed scope.
 ## Definition of Done
 
 - Every file in scope has been read, not skimmed from a diff summary alone.
-- Every reported finding cites a real `file:line`, a severity, and a prose
-  mitigation — no code patches were written anywhere in the output.
+- Every reported finding cites a real `file:line`, a severity, the exact
+  documented rule identifier, a **verbatim quote of the offending line**, and a
+  prose mitigation — no code patches were written anywhere in the output.
+- The output's **last line is `## Gate verdict: PASS` or `## Gate verdict: FAIL`**
+  (literally that word), consistent with the findings — present even when there
+  are zero findings.
 - No style, testing, or requirements-completeness items appear in the findings.
 - You made no writes, edits, or shell calls.
 

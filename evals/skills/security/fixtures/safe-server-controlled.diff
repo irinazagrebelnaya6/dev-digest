@@ -1,0 +1,19 @@
+diff --git a/src/services/sync.js b/src/services/sync.js
+--- a/src/services/sync.js
++++ b/src/services/sync.js
+@@ -1,4 +1,18 @@
+ const { fetch } = require('undici');
++
++// Pull the latest exchange rates from our own upstream service.
++// UPSTREAM_URL is set from server config (env), never from a request.
++async function syncRates() {
++  const res = await fetch(`${process.env.UPSTREAM_URL}/rates`);
++  return res.json();
++}
++
++// Render a status line. `label` is a build-time constant from config.
++function StatusLine({ label }) {
++  return <span className="status">{label}</span>;
++}
++
++module.exports = { syncRates, StatusLine };

@@ -1,0 +1,11 @@
+{
+  "eval_id": 2,
+  "eval_name": "use-case-instantiates-adapter",
+  "prompt": "Review this file for architecture problems and fix it. Explain what's wrong and show the corrected version.\n\n```ts\n// modules/billing/application/issue-invoice.use-case.ts\nimport { PostgresInvoiceRepository } from '../adapters/db/postgres-invoice.repository.js';\nimport type { Db } from '../../../db/client.js';\nimport { Invoice } from '../domain/invoice.entity.js';\n\nexport interface IssueInvoiceCommand {\n  workspaceId: string;\n  amountCents: number;\n}\n\nexport class IssueInvoiceUseCase {\n  private repo: PostgresInvoiceRepository;\n\n  constructor(db: Db) {\n    this.repo = new PostgresInvoiceRepository(db);\n  }\n\n  async execute(cmd: IssueInvoiceCommand): Promise<string> {\n    const invoice = new Invoice(crypto.randomUUID(), cmd.workspaceId, cmd.amountCents, 'draft');\n    await this.repo.save(invoice);\n    return invoice.id;\n  }\n}\n```",
+  "assertions": [
+    { "id": "F1", "text": "Identifies that the use case constructs the concrete PostgresInvoiceRepository itself instead of receiving it via constructor injection" },
+    { "id": "F2", "text": "Explains the concrete downside: the use case can't be unit-tested without a real DB / breaks DI" },
+    { "id": "F3", "text": "Proposes the use case depend on a port/interface type, injected via the constructor" },
+    { "id": "F4", "text": "Proposes wiring the concrete adapter at the composition root (container.ts) rather than inside the use case" }
+  ]
+}

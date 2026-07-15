@@ -1,0 +1,17 @@
+{
+  "eval_name": "review-fix",
+  "config": "with_skill",
+  "expectations": [
+    {"text": "B1: Flags z.any() and replaces it with a safer type (z.unknown / branded / proper primitive)", "passed": true, "evidence": "Problem #1 flags `id: z.any()` as CRITICAL; corrected code uses `id: z.string().uuid()` and advises z.unknown() only when shape is genuinely unknown."},
+    {"text": "B2: Flags the missing email validation and adds .email()", "passed": true, "evidence": "Problem #2 'email: z.string() — no format validation'; corrected `email: z.string().email()`."},
+    {"text": "B3: Flags age typed as string and coerces/uses a number so schema matches the intended type", "passed": true, "evidence": "Problem #3 flags string/number drift; corrected `age: z.number().int().positive()` plus explicit z.coerce.number() guidance for form input."},
+    {"text": "B4: Flags role as a plain string and switches to z.enum", "passed": true, "evidence": "Problem #4 flags `role: z.string()`; corrected uses `export const UserRole = z.enum([...])` referenced as `role: UserRole`."},
+    {"text": "B5: Replaces the hand-written `User` type with z.infer<typeof UserSchema>", "passed": true, "evidence": "Problem #5 says delete the duplicate type; corrected `export type User = z.infer<typeof UserSchema>`."},
+    {"text": "B6: Recommends safeParse (+ error handling) over parse for the untrusted `body: unknown`", "passed": true, "evidence": "Problem #6 flags `.parse()` on unknown; corrected handler uses `UserSchema.safeParse(body)` and branches, returning `error.flatten().fieldErrors`."},
+    {"text": "B7: Provides corrected, coherent code implementing the fixes", "passed": true, "evidence": "Complete corrected block with enum, uuid, coerce note, inferred type, and safeParse handler with a discriminated SignupResult; Zod-3-idiomatic (z.string().uuid()/.email()), consistent with the pinned version."}
+  ],
+  "summary": {"passed": 7, "failed": 0, "total": 7, "pass_rate": 1.0},
+  "eval_feedback": {
+    "overall": "All 7 satisfied. Corrected code uses Zod-3 method-form APIs (z.string().uuid()/.email(), flatten()), which matches the repo's pinned v3.24; no assertion tests version-correctness, so this advantage is invisible to the score."
+  }
+}

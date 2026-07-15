@@ -1,0 +1,16 @@
+{
+  "expectations": [
+    { "text": "E1: Identifies that the domain entity imports the Drizzle table/schema directly, violating inward-only dependency direction", "passed": true, "evidence": "\"Domain entity imports from the infrastructure/persistence layer (the core violation)... pulls the dependency arrow backwards: domain -> infrastructure.\"" },
+    { "text": "E2: Identifies that the toRow() row-mapping method lives inside the domain entity and should move to an adapter-level mapper", "passed": true, "evidence": "\"toRow()... is a mapper responsibility, not a domain responsibility... belongs in the infrastructure/repository layer.\"" },
+    { "text": "E3: Proposes a concrete fix: the entity depends only on primitive/domain types, and mapping to $inferInsert/$inferSelect happens in a separate mapper", "passed": true, "evidence": "Adds modules/billing/infrastructure/invoice.mapper.ts with toInvoiceRow/toInvoiceEntity using $inferInsert/$inferSelect; entity loses the Drizzle import." },
+    { "text": "E4: Provides corrected code implementing the fix, not just a description of the problem", "passed": true, "evidence": "Full corrected entity (with added constructor invariant) and mapper code blocks provided." }
+  ],
+  "summary": { "passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0 },
+  "timing": { "executor_duration_seconds": 164.8 },
+  "eval_feedback": {
+    "suggestions": [
+      { "reason": "This run also added an unrequested constructor invariant (amountCents must be a non-negative integer) and read accessors not asked for — reasonable extra value, but shows the baseline sometimes does more unprompted hardening than the with-skill run on the same fixture. Not a problem for grading, just a pattern worth watching across more cases." }
+    ],
+    "overall": "No suggestions on the assertions themselves — both configs are saturated on this eval; see the cross-eval note about eval-1/2/3 not discriminating."
+  }
+}

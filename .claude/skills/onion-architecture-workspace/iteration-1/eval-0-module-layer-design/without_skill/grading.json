@@ -1,0 +1,20 @@
+{
+  "expectations": [
+    { "text": "D1: Proposes explicit domain/application/adapters separation for the new module rather than one flat file or service", "passed": false, "evidence": "File layout is server/src/modules/coverage/{rule.ts, service.ts, routes.ts} — a deliberate flat layout, explicitly justified by precedent ('BlastService', 'BriefService' both live as one service.ts, not split into domain/application/adapters')." },
+    { "text": "D2: The domain layer (rule/entity) has no Drizzle/Fastify/HTTP or other framework/infra import", "passed": true, "evidence": "rule.ts is described as 'PURE — no DB, no network, no filesystem... plain data in, plain data out' with no imports shown beyond its own types." },
+    { "text": "D3: The application/use-case class depends on a port/interface for persistence, not a concrete adapter class", "passed": false, "evidence": "CoverageService constructor does `this.repo = new ReviewRepository(container.db)` — a concrete class instantiated inside the service, not a port interface injected from outside, mirroring the exact anti-pattern the skill's Step 3 warns against (though the answer explains this matches existing BlastService/BriefService convention)." },
+    { "text": "D4: Recommends wiring the concrete adapter into the use case at the composition root (container.ts), not inside the use case itself", "passed": false, "evidence": "Section '7. platform/container.ts — no change' explicitly states the adapter is NOT wired at the composition root; ReviewRepository is constructed inside CoverageService's own constructor instead." },
+    { "text": "D5: Shows or mentions a mapper translating between the DB row shape and the domain entity, kept at the adapter boundary", "passed": false, "evidence": "No mapper file or function is introduced; persistence goes through two new functions on the existing pull.repo.ts/ReviewRepository facade that read/write a typed slice of a jsonb blob directly, with no distinct domain entity to map to/from." },
+    { "text": "D6: Mentions adding a mock/test double for the new port so the use case can be unit-tested without a real DB", "passed": true, "evidence": "'Testing shape' section: 'service.test.ts — unit test with container.git mocked (src/adapters/mocks.ts convention) and a mock ReviewRepository/db.'" }
+  ],
+  "summary": { "passed": 2, "failed": 4, "total": 6, "pass_rate": 0.333 },
+  "timing": { "executor_duration_seconds": 593.4 },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "This is the interesting case: the baseline's design isn't a naive miss on D1/D3/D4/D5 — it's a well-researched, deliberate deviation. It spent 33 tool calls reading server/CLAUDE.md, pull.repo.ts, container.ts, modules/index.ts, and the actual BlastService/BriefService implementations, and concluded the layered domain/application/adapters split (and a new mapper/port) would be over-engineering for a feature that reuses existing shared adapters and the pre-created jsonb-blob persistence convention. It even caught the repo's 'no new tables' rule from CLAUDE.md, which the with-skill answer did not check against (it recommended new columns on pull_requests, which is directionally fine but wasn't verified against the actual existing precedent of reusing the pr_brief blob). Whether D1/D3/D4/D5 *should* fail here is genuinely debatable — they're testing conformance to the skill's textbook template, not architectural soundness for this specific codebase."
+      }
+    ],
+    "overall": "Numerically the weakest run in the whole benchmark (2/6), but it may be evaluating the wrong thing: the assertions reward the skill's idealized layered template and penalize a grounded, precedent-matching answer that a senior engineer on this specific codebase might well prefer. Recommend either splitting this eval into two graded dimensions (skill-template conformance vs. codebase-precedent conformance) or adding an explicit tie-breaker note that flat-vs-layered is legitimately contextual."
+      }
+}

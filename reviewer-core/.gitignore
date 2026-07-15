@@ -5,3 +5,7 @@ dist/
 src/**/*.js
 src/**/*.js.map
 src/**/*.d.ts
+
+# Stryker mutation testing (transient run artifacts)
+.stryker-tmp/
+reports/

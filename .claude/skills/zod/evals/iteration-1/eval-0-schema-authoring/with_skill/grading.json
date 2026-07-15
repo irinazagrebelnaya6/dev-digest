@@ -1,0 +1,17 @@
+{
+  "eval_name": "schema-authoring",
+  "config": "with_skill",
+  "expectations": [
+    {"text": "A1: Parses the untrusted body with safeParse (NOT parse)", "passed": true, "evidence": "parseBody helper calls `schema.safeParse(body)` and the route validates `request.body` through it; no `.parse()` on untrusted input."},
+    {"text": "A2: Coerces the form-string age to a number (z.coerce.number / z.preprocess) rather than z.number() on a string", "passed": true, "evidence": "`age: z.coerce.number({...}).int().min(13).max(120)` with comment 'Arrives as a string from the form -> coerce to number'."},
+    {"text": "A3: Models role as z.enum([...]) not a plain z.string()", "passed": true, "evidence": "`export const Role = z.enum(['admin', 'editor', 'viewer'], {...})` used as `role: Role`."},
+    {"text": "A4: Validates email with .email() at the schema", "passed": true, "evidence": "`.email('Please enter a valid email address')` chained on the email string schema."},
+    {"text": "A5: Derives the TS type via z.infer, not a hand-written interface", "passed": true, "evidence": "`export type SignupInput = z.infer<typeof signupSchema>` (also notes z.input vs z.output distinction)."},
+    {"text": "A6: Returns field-by-field errors via flatten() (or path-keyed issues), not a raw ZodError dump", "passed": true, "evidence": "`result.error.flatten()` -> `{ formErrors, fieldErrors }`; example response shows per-field friendly messages, no stack trace."},
+    {"text": "A7: Models bio with .optional() (and handles optional-vs-nullable correctly)", "passed": true, "evidence": "`bio: z.string().trim().max(500).optional()` and explicit note 'bio is .optional() — present-or-absent, not nullable'."}
+  ],
+  "summary": {"passed": 7, "failed": 0, "total": 7, "pass_rate": 1.0},
+  "eval_feedback": {
+    "overall": "Assertions are discriminating and all genuinely satisfied. The with_skill answer additionally pinned Zod v3.24 from server/package.json and cited named skill rules (parse-use-safeparse, schema-coercion-for-form-data, etc.), which no assertion rewards."
+  }
+}

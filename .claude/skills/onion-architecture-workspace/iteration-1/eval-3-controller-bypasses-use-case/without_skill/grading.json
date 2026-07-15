@@ -1,0 +1,16 @@
+{
+  "expectations": [
+    { "text": "G1: Identifies that the route handler calls the repository directly instead of going through an application/use-case layer", "passed": true, "evidence": "\"The controller bypasses the domain/use-case layer entirely... an outer layer (HTTP adapter) reaching past the application/domain layer directly into another outer layer (the DB adapter).\"" },
+    { "text": "G2: Identifies that the void-invoice invariant (Invoice.markPaid()) is bypassed because the route updates the row directly, i.e. flags the resulting reachable bug, not just the structural smell", "passed": true, "evidence": "\"Because the HTTP adapter never loads an Invoice entity and never calls markPaid(), that invariant is silently skipped... the one business rule this endpoint exists to protect is unreachable code.\" — listed as issue #1, critical." },
+    { "text": "G3: Identifies that the raw DB row is returned directly from the GET endpoint instead of a mapped DTO/domain-shaped response", "passed": true, "evidence": "\"'return row;' on the GET handler leaks the DB row shape straight into the API response, coupling the wire contract to the table schema.\"" },
+    { "text": "G4: Proposes concrete restructuring: a use case that the route calls, with domain rule enforcement and mapping at the boundary", "passed": true, "evidence": "Adds PayInvoiceUseCase (calls invoice.markPaid() then save()) and GetInvoiceUseCase; route resolves both from app.container and maps domain errors (InvoiceVoidError -> 409, InvoiceNotFoundError -> 404)." }
+  ],
+  "summary": { "passed": 4, "failed": 0, "total": 4, "pass_rate": 1.0 },
+  "timing": { "executor_duration_seconds": 160.1 },
+  "eval_feedback": {
+    "suggestions": [
+      { "reason": "This run additionally caught that the original GET handler had no 404 for a missing invoice (inconsistent with the pay handler) and fixed it — a real bug not covered by any assertion. Worth adding an assertion for 404-consistency between the two endpoints if this eval is reused." }
+    ],
+    "overall": "Both configs saturated at 4/4; the one asymmetry (missing-invoice 404 on GET) is a good candidate for a new assertion."
+  }
+}
