@@ -63,4 +63,9 @@ export const queryKeys = {
   multiAgentEconomics: (runId: string | null | undefined) =>
     ["multi-agent-run-economics", runId] as const,
   agentEstimates: (prId: string | null | undefined) => ["agent-estimates", prId] as const,
+  // Export to CI (SPEC-06)
+  ciInstallations: (agentId: string | null | undefined) => ["ci-installations", agentId] as const,
+  agentCiRuns: (agentId: string | null | undefined) => ["agent-ci-runs", agentId] as const,
+  workspaceCiRuns: (repo?: string | null, agentId?: string | null) =>
+    ["workspace-ci-runs", repo ?? null, agentId ?? null] as const,
 } as const;
