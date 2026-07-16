@@ -29,6 +29,7 @@ import { SkillsRepository } from '../modules/skills/repository.js';
 import { ConventionsRepository } from '../modules/conventions/repository.js';
 import { OnboardingRepository } from '../modules/onboarding/repository.js';
 import { EvalsRepository } from '../modules/evals/repository.js';
+import { CiRepository } from '../modules/ci/repository.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -80,6 +81,7 @@ export class Container {
   private _conventionsRepo?: ConventionsRepository;
   private _onboardingRepo?: OnboardingRepository;
   private _evalRepo?: EvalsRepository;
+  private _ciRepo?: CiRepository;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -122,6 +124,10 @@ export class Container {
 
   get evalRepo(): EvalsRepository {
     return (this._evalRepo ??= new EvalsRepository(this.db));
+  }
+
+  get ciRepo(): CiRepository {
+    return (this._ciRepo ??= new CiRepository(this.db));
   }
 
   get codeIndex(): CodeIndex {

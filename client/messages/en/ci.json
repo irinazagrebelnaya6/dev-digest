@@ -1,32 +1,25 @@
 {
-  "runs": {
-    "emptyTitle": "No CI runs yet",
-    "emptyBody": "Once you export an agent to CI, every automated review shows up here.",
-    "title": "CI Runs",
-    "subtitle": "Agent reviews executed inside CI · not local runs",
-    "autoRefresh": "auto-refresh on",
-    "refresh": "Refresh",
-    "refreshing": "Refreshing…",
-    "filters": {
-      "last7Days": "Last 7 days",
-      "allAgents": "All agents",
-      "allRepos": "All repos",
-      "allStatuses": "All statuses"
-    },
+  "tab": {
+    "heading": "Continuous Integration",
+    "subtitle": "Run this agent automatically on pull requests in a target repo.",
+    "addRepository": "+ Add repository",
+    "empty": "Not deployed to CI yet.",
+    "emptyBody": "Add a repository to run this agent automatically on every pull request.",
+    "loadError": "Could not load CI installations.",
     "table": {
-      "timestamp": "Timestamp",
-      "pullRequest": "Pull request",
-      "source": "Source",
-      "findings": "Findings",
-      "cost": "Cost",
-      "status": "Status"
+      "repository": "Repository",
+      "platform": "Platform",
+      "status": "Status",
+      "lastRun": "Last run",
+      "failCiOn": "Fail CI on"
     },
-    "view": "View",
+    "noRuns": "No runs yet",
     "status": {
       "succeeded": "Succeeded",
-      "noFindings": "No findings",
       "failed": "Failed",
-      "running": "Running"
+      "running": "Running",
+      "noFindings": "No findings",
+      "neverRun": "Not run yet"
     }
   },
   "exportWizard": {
@@ -34,71 +27,125 @@
     "subtitle": "Run {agentName} automatically on pull requests",
     "thisAgent": "this agent",
     "back": "Back",
-    "continue": "Continue",
-    "install": "Install",
-    "installing": "Installing…",
+    "next": "Next",
+    "close": "Close",
     "steps": {
       "target": "Target",
       "preview": "Preview",
       "configure": "Configure",
       "install": "Install"
     },
-    "targets": {
-      "gha": "GitHub Actions",
-      "circle": "CircleCI",
-      "jenkins": "Jenkins",
-      "cli": "Generic CLI",
-      "ghaDesc": "Runs on pull_request events",
-      "circleDesc": "config.yml job",
-      "jenkinsDesc": "Pipeline stage",
-      "cliDesc": "devdigest review --pr"
-    },
     "recommended": "recommended",
-    "repoLabel": "Target repository",
-    "repoHint": "owner/name — the repo to add the workflow to",
-    "repoPlaceholder": "acme/payments-api",
-    "filesToCreate": "FILES TO CREATE",
-    "generating": "Generating…",
-    "editable": "editable",
-    "triggerLabel": "Trigger",
-    "postResultsLabel": "Post results as",
-    "postAs": {
-      "githubReview": "GitHub review",
-      "prComment": "PR comment",
-      "none": "None (exit code only)"
+    "target": {
+      "heading": "Where should this agent run?",
+      "targetsLabel": "CI target",
+      "repoLabel": "Target repository",
+      "repoHint": "owner/name — the repo to add the workflow to",
+      "repoPlaceholder": "acme/payments-api",
+      "repoInvalid": "Enter a valid owner/name repository slug.",
+      "baseLabel": "Base branch",
+      "baseHint": "The branch the devdigest/ci branch will be created from",
+      "targets": {
+        "gha": "GitHub Actions",
+        "circle": "CircleCI",
+        "jenkins": "Jenkins",
+        "cli": "Generic CLI",
+        "ghaDesc": "Runs on pull_request events",
+        "circleDesc": "config.yml job",
+        "jenkinsDesc": "Pipeline stage",
+        "cliDesc": "devdigest review --pr"
+      }
     },
-    "blockMergeTitle": "Block merge on findings",
-    "blockMergeDesc": "Requires a GitHub App — not available with PAT in local mode",
-    "installCardTitle": "Open a PR with these files",
-    "installCardBody": "DevDigest opens a PR in {repo} titled “Add DevDigest CI review” with the {count} generated files.",
-    "ownerRepo": "owner/repo",
-    "secretNote": "Add {key} to the repo's Actions secrets before the workflow runs."
+    "preview": {
+      "heading": "Files to create",
+      "manifestTitle": "Agent manifest",
+      "skillsTitle": "Skills ({count})",
+      "noSkills": "No skills linked — the manifest ships with an empty skills list.",
+      "memoryTitle": "Memory log",
+      "workflowTitle": "GitHub Actions workflow",
+      "workflowHint": "The only editable file — DevDigest re-checks the security invariants (permissions, no inlined secret) before it commits.",
+      "editable": "editable",
+      "readOnly": "read-only",
+      "loadError": "Could not generate the CI bundle.",
+      "loading": "Generating…"
+    },
+    "configure": {
+      "secretsHeading": "Secrets expected",
+      "secretsChecking": "Checking…",
+      "secretsSet": "Set",
+      "secretsNotSet": "Not set",
+      "secretsAutoProvided": "Auto-provided by Actions",
+      "secretsMissingHint": "Add {key} to the repo's Actions secrets before the workflow runs.",
+      "postResultsLabel": "Post results as",
+      "postAs": {
+        "githubReview": "GitHub review",
+        "prComment": "PR comment",
+        "none": "None (exit code only)"
+      },
+      "postAsHint": {
+        "githubReview": "REQUEST_CHANGES verdict blocks merge",
+        "prComment": "Comment-only, never blocks merge",
+        "none": "No PR feedback — exit code only"
+      },
+      "triggersLabel": "Triggers",
+      "triggers": {
+        "opened": "Pull request opened",
+        "synchronize": "Pull request updated (synchronize)",
+        "reopened": "Pull request reopened"
+      },
+      "failCiOnLabel": "Fail CI on"
+    },
+    "install": {
+      "actionLabel": "How should DevDigest deliver these files?",
+      "actions": {
+        "openPr": "Open a PR with these files",
+        "zip": "Copy files as a zip"
+      },
+      "openPrDesc": "DevDigest opens a pull request with all the generated files — inspect and merge through your normal review flow.",
+      "zipDesc": "Download the generated files as a zip — no GitHub write, use as a degraded/manual path.",
+      "prPreviewTitle": "Pull request preview",
+      "prTitleLabel": "Title",
+      "prTitleValue": "Add DevDigest CI review",
+      "branchLabel": "Branch",
+      "baseLabel": "Base",
+      "zipFileCount": "{count} files",
+      "zipSizeEstimate": "≈ {size}",
+      "install": "Install",
+      "installing": "Installing…",
+      "prOpenedTitle": "Pull request opened",
+      "viewPr": "View pull request",
+      "zipReadyTitle": "Zip ready",
+      "downloadZip": "Download zip",
+      "error": "Something went wrong.",
+      "retry": "Retry"
+    }
   },
-  "ciTab": {
-    "heading": "Continuous Integration",
-    "subtitle": "Run this agent automatically on pull requests in a target repo.",
-    "exportToCi": "Export to CI",
-    "publish": "Publish to CI",
-    "update": "Update CI",
-    "noRepo": "Connect a repository first",
-    "empty": "Not deployed to CI yet. Use “Publish to CI” to open a PR that adds the workflow + agent config.",
-    "installed": "installed {date}"
-  },
-  "publishDialog": {
-    "title": "Publish to CI",
-    "subtitle": "Run {agentName} on every pull request in {repo}",
-    "intro": "Opens a pull request in {repo} adding a GitHub Actions workflow + this agent's config under .devdigest/. On every PR the agent reviews the diff.",
-    "filesLabel": "FILES",
-    "generating": "Generating…",
-    "secretNote": "Add {key} to the repo's Actions secrets before the workflow runs. GITHUB_TOKEN is provided automatically.",
-    "cancel": "Cancel",
-    "publish": "Publish",
-    "publishing": "Publishing…",
-    "republish": "Re-publish (update)",
-    "doneTitle": "Published",
-    "doneBody": "Opened/updated a pull request in {repo} with the workflow + agent config.",
-    "openPr": "View pull request",
-    "close": "Close"
+  "runsPage": {
+    "title": "CI Runs",
+    "subtitle": "Agent reviews executed inside CI · not local runs",
+    "emptyTitle": "No CI runs yet",
+    "emptyBody": "Once you export an agent to CI, every automated review shows up here.",
+    "loadError": "Could not load CI runs.",
+    "filters": {
+      "repoPlaceholder": "Filter by repository…",
+      "allAgents": "All agents"
+    },
+    "table": {
+      "repository": "Repository",
+      "agent": "Agent",
+      "status": "Status",
+      "findings": "Findings",
+      "cost": "Cost",
+      "duration": "Duration",
+      "job": "Job"
+    },
+    "view": "View",
+    "status": {
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "running": "Running",
+      "no_findings": "No findings"
+    }
   },
   "page": {
     "crumb": "CI Runs"

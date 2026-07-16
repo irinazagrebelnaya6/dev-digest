@@ -57,4 +57,10 @@ export const queryKeys = {
   agentEvalDashboard: (agentId: string | null | undefined) => ["agent-eval-dashboard", agentId] as const,
   evalCompare: (a: string | null | undefined, b: string | null | undefined) =>
     ["eval-compare", a, b] as const,
+
+  // Export to CI (SPEC-06)
+  ciInstallations: (agentId: string | null | undefined) => ["ci-installations", agentId] as const,
+  agentCiRuns: (agentId: string | null | undefined) => ["agent-ci-runs", agentId] as const,
+  workspaceCiRuns: (repo?: string | null, agentId?: string | null) =>
+    ["workspace-ci-runs", repo ?? null, agentId ?? null] as const,
 } as const;

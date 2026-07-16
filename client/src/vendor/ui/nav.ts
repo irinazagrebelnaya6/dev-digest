@@ -37,6 +37,7 @@ export const NAV: NavGroup[] = [
       // client/src/components/app-shell/helpers.ts, which already does
       // `pathname.startsWith("/eval") → "eval"` (pre-wired for this feature).
       { key: "eval", label: "Evals", icon: "Gauge", href: "/evals", gKey: "e" },
+      { key: "ci", label: "CI Runs", icon: "Activity", href: "/ci", gKey: "i" },
     ],
   },
 ];
@@ -71,6 +72,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: "g s", label: "Go to Skills", group: "Navigation" },
   { keys: "g v", label: "Go to Conventions", group: "Navigation" },
   { keys: "g e", label: "Go to Eval Dashboard", group: "Navigation" },
+  { keys: "g i", label: "Go to CI Runs", group: "Navigation" },
   { keys: "j / k", label: "Next / previous finding", group: "Findings" },
   { keys: "a", label: "Accept finding", group: "Findings" },
   { keys: "d", label: "Dismiss finding", group: "Findings" },
