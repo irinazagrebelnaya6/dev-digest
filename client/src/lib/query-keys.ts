@@ -57,4 +57,10 @@ export const queryKeys = {
   agentEvalDashboard: (agentId: string | null | undefined) => ["agent-eval-dashboard", agentId] as const,
   evalCompare: (a: string | null | undefined, b: string | null | undefined) =>
     ["eval-compare", a, b] as const,
+
+  // Multi-Agent Review (SPEC-06)
+  multiAgentRun: (runId: string | null | undefined) => ["multi-agent-run", runId] as const,
+  multiAgentEconomics: (runId: string | null | undefined) =>
+    ["multi-agent-run-economics", runId] as const,
+  agentEstimates: (prId: string | null | undefined) => ["agent-estimates", prId] as const,
 } as const;

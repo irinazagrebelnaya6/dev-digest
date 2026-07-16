@@ -39,7 +39,11 @@
     "running": "Running…",
     "runReview": "Run Review",
     "mergedWarning": "Already merged — review is informational",
-    "mergedTooltip": "This PR is already merged; running a review won’t affect the merged code."
+    "mergedTooltip": "This PR is already merged; running a review won’t affect the merged code.",
+    "pickAgentsTitle": "Pick agents to run",
+    "clear": "Clear",
+    "noAgents": "No agents yet — create one",
+    "runMultiAgent": "Run multi-agent review ({count})"
   },
   "runStatus": {
     "elapsed": "Running · {count} agent(s)",

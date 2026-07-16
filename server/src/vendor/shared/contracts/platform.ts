@@ -274,9 +274,17 @@ export const IndexStatus = z.object({
 export type IndexStatus = z.infer<typeof IndexStatus>;
 
 // ---- Run request (review trigger; owned by A2, contract lives here) ----
+/**
+ * Precedence when multiple fields are present: `agentIds` > `agentId` > `all`.
+ * `agentIds` is the picked-set contract for Multi-Agent Review (SPEC-06,
+ * AC-8) — additive, optional, and `.nonempty()` so an explicit empty array
+ * is rejected at the contract boundary. `agentId`/`all` are unchanged for
+ * back-compat with existing single-agent/run-all callers.
+ */
 export const RunRequest = z.object({
   agentId: z.string().optional(),
   all: z.boolean().optional(),
+  agentIds: z.array(z.string()).nonempty().optional(),
 });
 export type RunRequest = z.infer<typeof RunRequest>;
 

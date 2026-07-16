@@ -1,6 +1,73 @@
 import type { CSSProperties } from "react";
+import { PANEL_WIDTH } from "./constants";
 
-/** Co-located styles for RunReviewDropdown. This component renders only library
-   primitives (Button/Dropdown) and has no inline styles; the map is kept for
-   convention parity and future use. */
-export const s = {} satisfies Record<string, CSSProperties>;
+export const s = {
+  wrap: { position: "relative", display: "inline-block" } satisfies CSSProperties,
+  panel: {
+    position: "absolute",
+    top: "calc(100% + 6px)",
+    right: 0,
+    width: PANEL_WIDTH,
+    background: "var(--bg-elevated)",
+    border: "1px solid var(--border-strong)",
+    borderRadius: 9,
+    boxShadow: "var(--shadow-modal)",
+    padding: 12,
+    zIndex: 40,
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    animation: "ddpop .12s ease",
+  } satisfies CSSProperties,
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.07em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+  } satisfies CSSProperties,
+  clear: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    fontSize: 12,
+    fontWeight: 500,
+    color: "var(--accent-text)",
+    cursor: "pointer",
+  } satisfies CSSProperties,
+  list: { display: "flex", flexDirection: "column", gap: 2, maxHeight: 260, overflowY: "auto" } satisfies CSSProperties,
+  row: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "6px 4px",
+    borderRadius: 6,
+  } satisfies CSSProperties,
+  rowLabel: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } satisfies CSSProperties,
+  rowName: {
+    fontSize: 13,
+    color: "var(--text-primary)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  rowHint: { fontSize: 12, color: "var(--text-muted)", flexShrink: 0 } satisfies CSSProperties,
+  divider: { height: 1, background: "var(--border)", margin: "2px 0" } satisfies CSSProperties,
+  configureLink: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    background: "none",
+    border: "none",
+    padding: "6px 4px",
+    fontSize: 13,
+    color: "var(--text-secondary)",
+    cursor: "pointer",
+    textAlign: "left",
+  } satisfies CSSProperties,
+  emptyNote: { fontSize: 13, color: "var(--text-muted)", padding: "6px 4px" } satisfies CSSProperties,
+};

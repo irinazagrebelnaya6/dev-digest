@@ -1,6 +1,7 @@
 import type { Container } from '../../platform/container.js';
 import type {
   FindingActionKind,
+  GitHubClient,
   PrIntentRecord,
   PrRisksRecord,
   Provider,
@@ -19,7 +20,7 @@ import { REVIEW_STRATEGY } from './constants.js';
 import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
-import { reviewToDto } from './helpers.js';
+import { findingRowToDto, reviewToDto } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 import { computeIntent } from './intent-service.js';
 import { computeRisks } from './risk-service.js';
@@ -78,19 +79,34 @@ export class ReviewService {
   // ===========================================================================
 
   /**
-   * Resolve which agents to run. `all` → all enabled agents; else a single agent.
+   * Resolve which agents to run. Precedence (SPEC-06 AC-8): `agentIds` (a
+   * picked set) > `agentId` (single) > `all` (every enabled agent). An empty
+   * `agentIds` is rejected — the picker should never send it (the shared
+   * `RunRequest.agentIds` is `.nonempty()`), but this guards direct callers
+   * (e.g. MCP, tests) too.
    */
   async resolveTargets(
     workspaceId: string,
-    opts: { agentId?: string; all?: boolean },
+    opts: { agentId?: string; all?: boolean; agentIds?: string[] },
   ): Promise<AgentRow[]> {
+    if (opts.agentIds !== undefined) {
+      if (opts.agentIds.length === 0) {
+        throw new AppError('invalid_run_request', 'agentIds must not be empty', 400);
+      }
+      const agents = await Promise.all(
+        opts.agentIds.map((id) => this.agents.getById(workspaceId, id)),
+      );
+      const missing = agents.findIndex((a) => !a);
+      if (missing !== -1) throw new NotFoundError(`Agent not found: ${opts.agentIds[missing]}`);
+      return agents as AgentRow[];
+    }
     if (opts.all) return this.agents.listEnabled(workspaceId);
     if (opts.agentId) {
       const agent = await this.agents.getById(workspaceId, opts.agentId);
       if (!agent) throw new NotFoundError('Agent not found');
       return [agent];
     }
-    throw new AppError('invalid_run_request', 'Provide agentId or all:true', 400);
+    throw new AppError('invalid_run_request', 'Provide agentId, agentIds, or all:true', 400);
   }
 
   /** Delete a whole review run (one agent's pass) + its findings (cascade). */
@@ -236,14 +252,30 @@ export class ReviewService {
    * (= agent_runs.id) created up-front so the SSE route can be subscribed
    * before/while the run progresses. A partial failure in one agent does not
    * abort the others.
+   *
+   * `agentIds`, when provided (the picked-set launch, SPEC-06 AC-8/AC-9),
+   * creates one `multi_agent_runs` row up front and links every child run to
+   * it; the id is returned as `multiAgentRunId` so the route can hand it back
+   * to the picker. Legacy `{agentId}`/`{all}` callers omit `agentIds` and get
+   * `multiAgentRunId: null`.
    */
   async runReview(
     workspaceId: string,
     prId: string,
     targets: AgentRow[],
     logger?: Logger,
-  ): Promise<{ runs: { run_id: string; agent_id: string; agent_name: string }[]; reviews: ReviewDto[] }> {
-    const { pull, repo, runs, jobs } = await this.queueRuns(workspaceId, prId, targets);
+    opts: { agentIds?: string[] } = {},
+  ): Promise<{
+    runs: { run_id: string; agent_id: string; agent_name: string }[];
+    reviews: ReviewDto[];
+    multiAgentRunId: string | null;
+  }> {
+    const { pull, repo, runs, jobs, multiAgentRunId } = await this.queueRuns(
+      workspaceId,
+      prId,
+      targets,
+      opts,
+    );
 
     // Fire-and-forget: the HTTP response returns now with the runIds; reviews
     // are persisted as each agent finishes and the client refetches on SSE done.
@@ -251,7 +283,7 @@ export class ReviewService {
       logger?.error({ prId, err: (err as Error).message }, 'review: background execution crashed');
     });
 
-    return { runs, reviews: [] };
+    return { runs, reviews: [], multiAgentRunId };
   }
 
   /**
@@ -278,21 +310,34 @@ export class ReviewService {
    * Shared setup for the fire-and-forget and blocking run paths: resolve the
    * pull + repo and create an `agent_runs` row per target up front so a runId
    * is available IMMEDIATELY. Returns the run handles + the executor jobs.
+   *
+   * When `opts.agentIds` is a non-empty picked set (SPEC-06 AC-9), creates one
+   * `multi_agent_runs` row FIRST and threads its id into every `createAgentRun`
+   * call so every child run this launch produces is linked to it. Legacy
+   * `{agentId}`/`{all}` launches (no `agentIds`) keep `multiAgentRunId: null` —
+   * this is the ONLY branch that creates a multi-run row.
    */
   private async queueRuns(
     workspaceId: string,
     prId: string,
     targets: AgentRow[],
+    opts: { agentIds?: string[] } = {},
   ): Promise<{
     pull: NonNullable<Awaited<ReturnType<ReviewRepository['getPull']>>>;
     repo: NonNullable<Awaited<ReturnType<ReviewRepository['getRepo']>>>;
     runs: { run_id: string; agent_id: string; agent_name: string }[];
     jobs: { agent: AgentRow; runId: string }[];
+    multiAgentRunId: string | null;
   }> {
     const pull = await this.repo.getPull(workspaceId, prId);
     if (!pull) throw new NotFoundError('Pull request not found');
     const repo = await this.repo.getRepo(pull.repoId);
     if (!repo) throw new NotFoundError('Repo not found');
+
+    const multiAgentRunId =
+      opts.agentIds !== undefined && opts.agentIds.length > 0
+        ? await this.repo.createMultiAgentRun({ workspaceId, prId })
+        : null;
 
     const runs: { run_id: string; agent_id: string; agent_name: string }[] = [];
     const jobs: { agent: AgentRow; runId: string }[] = [];
@@ -303,11 +348,12 @@ export class ReviewService {
         prId,
         provider: agent.provider,
         model: agent.model,
+        multiAgentRunId,
       });
       runs.push({ run_id: runId, agent_id: agent.id, agent_name: agent.name });
       jobs.push({ agent, runId });
     }
-    return { pull, repo, runs, jobs };
+    return { pull, repo, runs, jobs, multiAgentRunId };
   }
 
   private publish(runId: string, kind: RunEventKind, msg: string, data?: unknown) {
@@ -318,12 +364,74 @@ export class ReviewService {
   // Finding actions
   // ===========================================================================
 
+  /**
+   * `reply` (SPEC-06 AC-18) is handled HERE, not in `findings.ts`, because it
+   * needs `container.github()` — `findings.ts` stays a pure repo-only module.
+   * Every other action delegates unchanged.
+   */
   async actOnFinding(
     workspaceId: string,
     findingId: string,
     action: FindingActionKind,
+    reply?: string,
   ): Promise<{ finding: ReviewDtoFinding }> {
+    if (action === 'reply') {
+      return this.replyToFinding(workspaceId, findingId, reply ?? '');
+    }
     return actOnFindingImpl(this.repo, workspaceId, findingId, action);
+  }
+
+  /**
+   * Post a GitHub PR review comment anchored to the finding's file+line
+   * (mirrors `POST /pulls/:id/comments` + `createReviewComment`). The reply
+   * body is untrusted DATA (SPEC-06 AC-26) — passed straight to the adapter's
+   * `body` field, never concatenated into a prompt/command. Fails with a clean
+   * `AppError` (not a raw 500) when GitHub is unavailable or the finding's
+   * line can no longer be anchored (SPEC-06 AC-18 edge case).
+   */
+  private async replyToFinding(
+    workspaceId: string,
+    findingId: string,
+    reply: string,
+  ): Promise<{ finding: ReviewDtoFinding }> {
+    if (!reply.trim()) {
+      throw new AppError('invalid_reply', 'Reply body must not be empty', 400);
+    }
+    const ctx = await this.repo.findingContext(findingId);
+    if (!ctx || ctx.pull.workspaceId !== workspaceId) {
+      throw new NotFoundError('Finding not found');
+    }
+    const { finding, pull } = ctx;
+    const repoRow = await this.repo.getRepo(pull.repoId);
+    if (!repoRow) throw new NotFoundError('Repo not found');
+    if (!finding.startLine || finding.startLine < 1) {
+      throw new AppError('invalid_reply_target', 'Finding has no valid diff line to reply on', 400);
+    }
+
+    let gh: GitHubClient;
+    try {
+      gh = await this.container.github();
+    } catch {
+      throw new AppError(
+        'github_unavailable',
+        'Connect a GitHub token to reply to findings.',
+        400,
+      );
+    }
+
+    try {
+      await gh.createReviewComment({ owner: repoRow.owner, name: repoRow.name }, pull.number, {
+        commitId: pull.headSha,
+        path: finding.file,
+        line: finding.startLine,
+        body: reply,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to post the reply to GitHub.';
+      throw new AppError('github_comment_failed', msg, 400, { cause: String(err) });
+    }
+
+    return { finding: findingRowToDto(finding) };
   }
 
   // ===========================================================================

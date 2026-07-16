@@ -13,6 +13,9 @@ export interface ReviewDtoFinding extends Finding {
   review_id: string;
   accepted_at: string | null;
   dismissed_at: string | null;
+  /** Set when the user activates "Learn" (SPEC-06 AC-17); independent of
+   *  accept/dismiss (not mutually exclusive with either). */
+  learned_at: string | null;
 }
 
 export interface ReviewDto {
@@ -49,6 +52,7 @@ export function findingRowToDto(row: FindingRow): ReviewDtoFinding {
     review_id: row.reviewId,
     accepted_at: row.acceptedAt?.toISOString() ?? null,
     dismissed_at: row.dismissedAt?.toISOString() ?? null,
+    learned_at: row.learnedAt?.toISOString() ?? null,
   };
 }
 
