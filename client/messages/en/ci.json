@@ -10,6 +10,7 @@
       "repository": "Repository",
       "platform": "Platform",
       "status": "Status",
+      "version": "Version",
       "lastRun": "Last run",
       "failCiOn": "Fail CI on"
     },
@@ -20,6 +21,15 @@
       "running": "Running",
       "noFindings": "No findings",
       "neverRun": "Not run yet"
+    },
+    "refreshFromCi": "Refresh from CI",
+    "refreshing": "Refreshing…",
+    "runHistory": {
+      "heading": "CI run history",
+      "subtitle": "Every automated review this agent has run in CI, newest first.",
+      "loadError": "Could not load CI run history.",
+      "empty": "No CI runs yet",
+      "emptyBody": "Once this agent runs in CI, every automated review shows up here."
     }
   },
   "exportWizard": {
@@ -131,9 +141,11 @@
       "allAgents": "All agents"
     },
     "table": {
+      "pr": "PR",
       "repository": "Repository",
       "agent": "Agent",
       "status": "Status",
+      "verdict": "Verdict",
       "findings": "Findings",
       "cost": "Cost",
       "duration": "Duration",
@@ -145,6 +157,11 @@
       "failed": "Failed",
       "running": "Running",
       "no_findings": "No findings"
+    },
+    "verdict": {
+      "requestChanges": "Request changes",
+      "comment": "Comment",
+      "approve": "Approve"
     }
   },
   "page": {

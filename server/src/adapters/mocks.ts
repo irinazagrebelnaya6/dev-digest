@@ -17,6 +17,8 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  ListCiResultsOptions,
+  CiWorkflowRunResult,
   GitClient,
   CloneOptions,
   UnifiedDiff,
@@ -125,6 +127,8 @@ export interface MockGitHubOptions {
   login?: string;
   /** Existing inline review comments returned by listReviewComments. */
   comments?: PrReviewComment[];
+  /** Canned `listCiResults` response; defaults to one run with a result. */
+  ciResults?: CiWorkflowRunResult[];
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -236,6 +240,34 @@ export class MockGitHubClient implements GitHubClient {
 
   async currentLogin(): Promise<string> {
     return this.opts.login ?? 'mock-user';
+  }
+
+  async listCiResults(
+    _repo: RepoRef,
+    _opts?: ListCiResultsOptions,
+  ): Promise<CiWorkflowRunResult[]> {
+    return (
+      this.opts.ciResults ?? [
+        {
+          runId: 1001,
+          htmlUrl: 'https://github.com/mock/mock/actions/runs/1001',
+          status: 'completed',
+          conclusion: 'success',
+          createdAt: '2026-06-01T00:00:00Z',
+          result: {
+            findings_count: 2,
+            critical: 0,
+            warning: 1,
+            suggestion: 1,
+            cost_usd: 0.01,
+            duration_ms: 4200,
+            agent: 'Security Reviewer',
+            version: '1.0.0',
+            pr_number: 482,
+          },
+        },
+      ]
+    );
   }
 }
 

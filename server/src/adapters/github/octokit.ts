@@ -1,4 +1,5 @@
 import { Octokit } from 'octokit';
+import * as zlib from 'node:zlib';
 import type {
   GitHubClient,
   RepoRef,
@@ -11,10 +12,92 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  ListCiResultsOptions,
+  CiWorkflowRunResult,
 } from '@devdigest/shared';
+import { CI_RESULT_ARTIFACT_NAME, CI_RESULT_FILE_NAME } from '@devdigest/shared';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
 
 const TIMEOUT = 30_000;
+
+// ---------------------------------------------------------------------------
+// Minimal ZIP reader (built-in `node:zlib` only — NO dependency).
+//
+// `downloadArtifact` returns the raw bytes of a ZIP archive. Rather than parse
+// local file headers sequentially (which breaks for streamed ZIPs whose local
+// header sizes are zeroed out in favour of a trailing data descriptor), this
+// walks the End-Of-Central-Directory record -> Central Directory entries,
+// which always carry the reliable compressed size + local-header offset for
+// every entry, then reads just the one entry we need from its local header.
+// ---------------------------------------------------------------------------
+
+interface ZipCentralDirectoryEntry {
+  name: string;
+  method: number;
+  compressedSize: number;
+  localHeaderOffset: number;
+}
+
+const EOCD_SIGNATURE = 0x06054b50;
+const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
+const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
+
+/** Scan backward for the End-Of-Central-Directory record (comment can trail up to 65535 bytes). */
+function findEndOfCentralDirectory(buf: Buffer): number {
+  const minEocdSize = 22;
+  const maxCommentSize = 65_535;
+  const searchStart = Math.max(0, buf.length - minEocdSize - maxCommentSize);
+  for (let i = buf.length - minEocdSize; i >= searchStart; i--) {
+    if (buf.readUInt32LE(i) === EOCD_SIGNATURE) return i;
+  }
+  return -1;
+}
+
+function parseCentralDirectory(buf: Buffer): ZipCentralDirectoryEntry[] {
+  const eocdOffset = findEndOfCentralDirectory(buf);
+  if (eocdOffset < 0) throw new Error('Not a valid ZIP archive (EOCD record not found)');
+  const cdSize = buf.readUInt32LE(eocdOffset + 12);
+  const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+  const entries: ZipCentralDirectoryEntry[] = [];
+  let offset = cdOffset;
+  const cdEnd = cdOffset + cdSize;
+  while (offset < cdEnd) {
+    if (buf.readUInt32LE(offset) !== CENTRAL_DIRECTORY_SIGNATURE) break;
+    const method = buf.readUInt16LE(offset + 10);
+    const compressedSize = buf.readUInt32LE(offset + 20);
+    const nameLen = buf.readUInt16LE(offset + 28);
+    const extraLen = buf.readUInt16LE(offset + 30);
+    const commentLen = buf.readUInt16LE(offset + 32);
+    const localHeaderOffset = buf.readUInt32LE(offset + 42);
+    const name = buf.toString('utf8', offset + 46, offset + 46 + nameLen);
+    entries.push({ name, method, compressedSize, localHeaderOffset });
+    offset += 46 + nameLen + extraLen + commentLen;
+  }
+  return entries;
+}
+
+/** Read + decompress one entry's bytes from its local file header (`method` 0 = stored, 8 = deflate). */
+function readZipEntry(buf: Buffer, entry: ZipCentralDirectoryEntry): Buffer {
+  const localOffset = entry.localHeaderOffset;
+  if (buf.readUInt32LE(localOffset) !== LOCAL_FILE_HEADER_SIGNATURE) {
+    throw new Error('Malformed ZIP local file header');
+  }
+  const nameLen = buf.readUInt16LE(localOffset + 26);
+  const extraLen = buf.readUInt16LE(localOffset + 28);
+  const dataStart = localOffset + 30 + nameLen + extraLen;
+  const compressed = buf.subarray(dataStart, dataStart + entry.compressedSize);
+  if (entry.method === 0) return Buffer.from(compressed);
+  if (entry.method === 8) return zlib.inflateRawSync(compressed);
+  throw new Error(`Unsupported ZIP compression method: ${entry.method}`);
+}
+
+/** Extract one named file's bytes from a ZIP buffer, or `null` if absent. */
+function extractZipEntry(zipBuffer: Buffer, fileName: string): Buffer | null {
+  const entries = parseCentralDirectory(zipBuffer);
+  const entry = entries.find((e) => e.name === fileName || e.name.endsWith(`/${fileName}`));
+  if (!entry) return null;
+  return readZipEntry(zipBuffer, entry);
+}
 
 function mapStatus(state: string, merged: boolean | undefined): PrStatus {
   if (merged) return 'merged';
@@ -368,5 +451,73 @@ export class OctokitGitHubClient implements GitHubClient {
       withTimeout(this.octokit.rest.users.getAuthenticated(), TIMEOUT),
     );
     return res.data.login;
+  }
+
+  /**
+   * List completed workflow runs for `repo` and, for each, attempt to fetch +
+   * parse its `devdigest-result` artifact (produced by `agent-runner`). Runs
+   * without a matching artifact — or whose artifact fails to parse — yield
+   * `result: null` rather than throwing, so one bad run never blocks ingest
+   * of the rest.
+   */
+  async listCiResults(
+    repo: RepoRef,
+    opts?: ListCiResultsOptions,
+  ): Promise<CiWorkflowRunResult[]> {
+    return withRetry(() =>
+      withTimeout(
+        (async () => {
+          const perPage = opts?.perPage ?? 20;
+          const res = await this.octokit.rest.actions.listWorkflowRunsForRepo({
+            owner: repo.owner,
+            repo: repo.name,
+            status: 'completed',
+            per_page: perPage,
+          });
+          const results: CiWorkflowRunResult[] = [];
+          for (const run of res.data.workflow_runs) {
+            results.push({
+              runId: run.id,
+              htmlUrl: run.html_url,
+              status: run.status ?? 'completed',
+              conclusion: run.conclusion,
+              createdAt: run.created_at,
+              result: await this.fetchCiResultArtifact(repo, run.id),
+            });
+          }
+          return results;
+        })(),
+        TIMEOUT,
+      ),
+    );
+  }
+
+  /** Downloads + unzips the `devdigest-result` artifact of one run, if present. */
+  private async fetchCiResultArtifact(repo: RepoRef, runId: number): Promise<unknown | null> {
+    const artifactsRes = await this.octokit.rest.actions.listWorkflowRunArtifacts({
+      owner: repo.owner,
+      repo: repo.name,
+      run_id: runId,
+    });
+    const artifact = artifactsRes.data.artifacts.find((a) => a.name === CI_RESULT_ARTIFACT_NAME);
+    if (!artifact) return null;
+
+    const download = await this.octokit.rest.actions.downloadArtifact({
+      owner: repo.owner,
+      repo: repo.name,
+      artifact_id: artifact.id,
+      archive_format: 'zip',
+    });
+    // Octokit's fetch transport follows the artifact-download redirect and
+    // returns the final `application/zip` body as an ArrayBuffer.
+    const zipBuffer = Buffer.from(download.data as ArrayBuffer);
+    try {
+      const fileBuffer = extractZipEntry(zipBuffer, CI_RESULT_FILE_NAME);
+      if (!fileBuffer) return null;
+      return JSON.parse(fileBuffer.toString('utf8'));
+    } catch {
+      // A malformed ZIP or non-JSON entry degrades to "no result", not a throw.
+      return null;
+    }
   }
 }

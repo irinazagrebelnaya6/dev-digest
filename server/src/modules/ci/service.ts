@@ -4,10 +4,12 @@ import type {
   CiFailOn,
   CiFile,
   CiInstallation,
+  CiResultArtifact,
   CiRun,
   Provider,
   ReviewStrategy,
 } from '@devdigest/shared';
+import { CiResultArtifact as CiResultArtifactSchema } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { LinkedSkillRow } from '../agents/repository.js';
@@ -16,7 +18,16 @@ import { CiRepository } from './repository.js';
 import { agentYaml } from './generators/manifest.js';
 import { workflowYaml } from './generators/workflow.js';
 import { readRunnerBundle } from './runner-bundle.js';
-import { isValidRepoSlug, slugify, exportPrBody, toInstallationDto, toRunDto } from './helpers.js';
+import {
+  isValidRepoSlug,
+  slugify,
+  exportPrBody,
+  toInstallationDto,
+  toRunDto,
+  deriveCiStatus,
+  countCiBlockers,
+  ciResultToTrace,
+} from './helpers.js';
 import { DEVDIGEST_CI_BRANCH, MANIFEST_DIR, MEMORY_PATH, SKILLS_DIR, WORKFLOW_PATH } from './constants.js';
 
 /**
@@ -192,5 +203,115 @@ export class CiService {
   ): Promise<CiRun[]> {
     const rows = await this.repo.getRunsForWorkspace(workspaceId, filters);
     return rows.map(toRunDto);
+  }
+
+  /**
+   * Persists one validated `CiResultArtifact` through the D1 shared-id seam:
+   * derives the verdict (D4) + blocker count from the artifact + the
+   * installing agent's `ci_fail_on` gate, builds the companion trace, and
+   * writes `agent_runs` + `ci_runs` + `run_traces` atomically via
+   * `insertRunWithTrace`. Returns `undefined` if `installationId` doesn't
+   * resolve (dangling id) — the caller should count it as skipped.
+   */
+  async recordCiRun(
+    installationId: string,
+    artifact: CiResultArtifact,
+    meta: {
+      githubUrl: string;
+      createdAt: string;
+      model: string;
+      provider?: string | null;
+      ciFailOn: CiFailOn;
+    },
+  ): Promise<CiRun | undefined> {
+    const status = deriveCiStatus(artifact, meta.ciFailOn);
+    const blockers = countCiBlockers(artifact, meta.ciFailOn);
+    const trace = ciResultToTrace({
+      githubUrl: meta.githubUrl,
+      createdAt: meta.createdAt,
+      model: meta.model,
+      provider: meta.provider,
+      artifact,
+    });
+
+    const row = await this.repo.insertRunWithTrace({
+      ciInstallationId: installationId,
+      prNumber: artifact.pr_number ?? null,
+      status,
+      ranAt: new Date(meta.createdAt),
+      findingsCount: artifact.findings_count,
+      durationMs: artifact.duration_ms ?? null,
+      blockers,
+      score: null,
+      costUsd: artifact.cost_usd,
+      githubUrl: meta.githubUrl,
+      trace,
+    });
+    return row ? toRunDto(row) : undefined;
+  }
+
+  /**
+   * On-demand CI ingest (D3 — "Refresh from CI", no webhook): resolves the
+   * agent workspace-scoped, fetches completed workflow runs for each of its
+   * installations, validates each run's artifact against `CiResultArtifact`,
+   * dedupes by `github_url` (idempotent re-ingest), and persists new ones via
+   * `recordCiRun`. Returns `undefined` when the agent isn't in this
+   * workspace (route -> 404).
+   */
+  async ingestForAgent(
+    workspaceId: string,
+    agentId: string,
+  ): Promise<{ ingested: number; skipped: number } | undefined> {
+    const agent = await this.container.agentsRepo.getById(workspaceId, agentId);
+    if (!agent) return undefined;
+
+    const installations = await this.repo.listInstallationsForAgent(workspaceId, agentId);
+
+    let ingested = 0;
+    let skipped = 0;
+
+    for (const installation of installations) {
+      const [owner, name] = installation.repo.split('/', 2) as [string, string];
+      let runs;
+      try {
+        const github = await this.container.github();
+        runs = await github.listCiResults({ owner, name });
+      } catch (err) {
+        // AC-16-style: surface a clear error rather than silently skipping —
+        // a broken adapter call should never masquerade as "0 new runs".
+        const message = err instanceof Error ? err.message : String(err);
+        throw new ExternalServiceError(
+          `Failed to fetch CI results for ${installation.repo}: ${message}`,
+        );
+      }
+
+      for (const run of runs) {
+        if (run.result == null) {
+          skipped++;
+          continue;
+        }
+        const parsed = CiResultArtifactSchema.safeParse(run.result);
+        if (!parsed.success) {
+          skipped++;
+          continue;
+        }
+        const existing = await this.repo.findRunByGithubUrl(workspaceId, run.htmlUrl);
+        if (existing) {
+          skipped++;
+          continue;
+        }
+        const recorded = await this.recordCiRun(installation.id, parsed.data, {
+          githubUrl: run.htmlUrl,
+          createdAt: run.createdAt,
+          model: agent.model,
+          provider: agent.provider,
+          ciFailOn: agent.ciFailOn as CiFailOn,
+        });
+        if (recorded) ingested++;
+        else skipped++;
+      }
+    }
+
+    return { ingested, skipped };
   }
 }

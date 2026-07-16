@@ -7,6 +7,7 @@
      GET  /agents/:id/ci/installations        -> CiInstallation[]
      GET  /agents/:id/ci/runs                 -> CiRun[]
      GET  /ci/runs?repo=&agent_id=            -> CiRun[]
+     POST /agents/:id/ci/ingest               -> { ingested, skipped }
 */
 "use client";
 
@@ -109,6 +110,30 @@ export function useUpdateCiFailOn(agentId: string, installation: Pick<CiInstalla
       qc.invalidateQueries({ queryKey: queryKeys.agent(agentId) });
       qc.invalidateQueries({ queryKey: queryKeys.ciInstallations(agentId) });
       qc.invalidateQueries({ queryKey: queryKeys.agentCiRuns(agentId) });
+    },
+  });
+}
+
+export interface CiIngestSummary {
+  ingested: number;
+  skipped: number;
+}
+
+/** POST /agents/:id/ci/ingest — "Refresh from CI" (D3): on-demand pull of
+ *  completed GitHub Actions runs' result artifacts into this agent's
+ *  `ci_runs`/`agent_runs`/`run_traces`. Invalidates both this agent's run
+ *  list AND the workspace-wide `/ci` list (any repo/agent filter combo) so
+ *  freshly-ingested runs show up everywhere without a manual refetch. */
+export function useIngestCiRuns(agentId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<CiIngestSummary>(`/agents/${agentId}/ci/ingest`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.agentCiRuns(agentId) });
+      // Prefix invalidation: workspaceCiRuns(...) keys carry repo/agent filter
+      // params, so match on the raw prefix (NOT queryKeys.workspaceCiRuns(undefined,
+      // undefined), which only matches the no-filter key — see client/INSIGHTS.md).
+      qc.invalidateQueries({ queryKey: ["workspace-ci-runs"] });
     },
   });
 }

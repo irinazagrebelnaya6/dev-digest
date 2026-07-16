@@ -9,6 +9,16 @@ vi.mock("@/components/app-shell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock("@/lib/hooks/core", () => ({
+  useRepos: () => ({ data: [] }),
+}));
+
 const mocks = vi.hoisted(() => ({
   runs: [] as CiRunRecord[],
   isLoading: false,
@@ -89,13 +99,15 @@ describe("CiRunsPage (AC-12)", () => {
     expect(screen.getByText("No CI runs yet")).toBeInTheDocument();
   });
 
-  it("renders the runs table with fixtures (Repository · Agent · Status · Findings · Cost · Duration · Job)", () => {
+  it("renders the runs table with fixtures (PR · Repository · Agent · Verdict · Findings · Cost · Duration · Job)", () => {
     mocks.runs = [run()];
     renderPage();
 
+    expect(screen.getByText("#42")).toBeInTheDocument();
     expect(screen.getByText("acme/payments-api")).toBeInTheDocument();
     expect(screen.getByText("Security Reviewer")).toBeInTheDocument();
-    expect(screen.getByText("Succeeded")).toBeInTheDocument();
+    // status "succeeded" -> UI-derived verdict "Comment" (D4).
+    expect(screen.getByText("Comment")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("45s")).toBeInTheDocument();
     expect(screen.getByText("View")).toBeInTheDocument();

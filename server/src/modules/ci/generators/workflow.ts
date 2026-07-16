@@ -1,4 +1,5 @@
 import { parse as parseYaml, stringify } from 'yaml';
+import { CI_RESULT_ARTIFACT_NAME, CI_RESULT_FILE_NAME } from '@devdigest/shared';
 import { RUNNER_ENTRY } from '../constants.js';
 
 /**
@@ -63,6 +64,24 @@ export function workflowYaml(
               DEVDIGEST_AGENT_SLUG: agentSlug,
             },
             run: `node ${RUNNER_ENTRY}`,
+          },
+          {
+            // Publish the runner's result JSON so the studio can ingest it back
+            // (GET workflow-run artifacts). `if: always()` so a gate-tripped
+            // review (non-zero exit) still uploads the result. Name/path come
+            // from the shared `CI_RESULT_*` constants — the SAME source the
+            // ingest adapter (`adapters/github/octokit.ts`) reads, so the two
+            // sides can never drift. The runner writes the file to the
+            // workspace root (agent-runner: process.cwd()/<file>). No extra
+            // permissions needed — artifact upload uses the default token.
+            name: 'Upload DevDigest result',
+            if: 'always()',
+            uses: 'actions/upload-artifact@v4',
+            with: {
+              name: CI_RESULT_ARTIFACT_NAME,
+              path: CI_RESULT_FILE_NAME,
+              'if-no-files-found': 'ignore',
+            },
           },
         ],
       },

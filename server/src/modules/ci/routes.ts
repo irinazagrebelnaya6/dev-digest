@@ -8,15 +8,19 @@ import { NotFoundError } from '../../platform/errors.js';
 import { CiService } from './service.js';
 
 /**
- * SPEC-06 — CI module (export to CI + CI runs).
+ * SPEC-06 — CI module (export to CI + CI runs + CI ingest).
  *   POST /agents/:id/export-ci          -> generate artifacts, optionally open a PR (AC-1..AC-9, AC-15, AC-16, AC-19)
  *   GET  /agents/:id/ci/installations   -> this agent's installations (AC-10)
  *   GET  /agents/:id/ci/runs            -> this agent's CI runs (AC-11)
  *   GET  /ci/runs                       -> workspace-wide CI runs, filterable (AC-12)
+ *   POST /agents/:id/ci/ingest          -> on-demand "Refresh from CI": pull + persist
+ *                                          completed GitHub Actions runs' result artifacts
  *
  * Every handler resolves `getContext()` first (AC-14); a cross-workspace
  * agent id resolves to the standard `NotFoundError` (either here or inside
  * `CiService`, which returns `undefined` for an out-of-workspace agent).
+ * Ingest failures on the GitHub side surface as `ExternalServiceError` (502,
+ * AC-16 style) from `CiService.ingestForAgent` — no partial state is implied.
  */
 const WorkspaceRunsQuery = z.object({
   repo: z.string().min(1).optional(),
@@ -59,5 +63,12 @@ export default async function ciRoutes(appBase: FastifyInstance) {
       repo: req.query.repo,
       agentId: req.query.agent_id,
     });
+  });
+
+  app.post('/agents/:id/ci/ingest', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    const summary = await service.ingestForAgent(workspaceId, req.params.id);
+    if (!summary) throw new NotFoundError('Agent not found');
+    return summary;
   });
 }

@@ -1,17 +1,22 @@
 /* CiRunsPage — /ci page (AC-12). Lists every workspace CI run (`source='ci'`),
    filterable by Repository (free text) and Agent (dropdown). Rows link out to
-   the GitHub Actions job (`ci_run.github_url`). */
+   the GitHub Actions job (`ci_run.github_url`) and, clicked anywhere else, open
+   the run-trace drawer (`?trace=<run.id>`, same pattern as MultiAgentResultsView). */
 "use client";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import React from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Badge, EmptyState, ErrorState, MonoLink, SelectInput, Skeleton, TextInput } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
 import { RunCostBadge } from "@/components/RunCostBadge";
+import { RunTraceDrawer } from "@/app/repos/[repoId]/pulls/[number]/_components/RunTraceDrawer";
 import { useAgents } from "@/lib/hooks/agents";
+import { useRepos } from "@/lib/hooks/core";
 import { useWorkspaceCiRuns } from "@/lib/hooks/useCi";
-import { formatDuration, statusMeta } from "./helpers";
+import { formatDuration, verdictMeta } from "./helpers";
 
 const th: CSSProperties = {
   textAlign: "left",
@@ -31,16 +36,42 @@ const td: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+const rowStyle: CSSProperties = {
+  cursor: "pointer",
+};
+
 export function CiRunsPage() {
   const t = useTranslations("ci");
+  const router = useRouter();
+  const search = useSearchParams();
   const [repoFilter, setRepoFilter] = React.useState("");
   const [agentFilter, setAgentFilter] = React.useState("");
 
   const { data: agents } = useAgents();
+  const { data: repos } = useRepos();
   const { data: runs, isLoading, isError, refetch } = useWorkspaceCiRuns({
     repo: repoFilter,
     agent_id: agentFilter || undefined,
   });
+
+  // `run.repo` (a locally-tolerated `full_name` string, see useCi.ts) resolves
+  // to a repoId — via the workspace's tracked repos — so the PR column can
+  // link to the PR detail page. Repos not (yet) tracked in this workspace
+  // render the PR number as plain text instead of a dead link.
+  const repoIdByFullName = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of repos ?? []) map.set(r.full_name, r.id);
+    return map;
+  }, [repos]);
+
+  const traceRunId = search.get("trace");
+  const setTraceRunId = (id: string | null) => {
+    const sp = new URLSearchParams(search.toString());
+    if (id == null) sp.delete("trace");
+    else sp.set("trace", id);
+    router.replace(`/ci${sp.toString() ? `?${sp.toString()}` : ""}`);
+  };
+  const selectedRun = (runs ?? []).find((r) => r.id === traceRunId) ?? null;
 
   const agentOptions = [
     { value: "", label: t("runsPage.filters.allAgents") },
@@ -90,13 +121,16 @@ export function CiRunsPage() {
               <thead>
                 <tr>
                   <th scope="col" style={th}>
+                    {t("runsPage.table.pr")}
+                  </th>
+                  <th scope="col" style={th}>
                     {t("runsPage.table.repository")}
                   </th>
                   <th scope="col" style={th}>
                     {t("runsPage.table.agent")}
                   </th>
                   <th scope="col" style={th}>
-                    {t("runsPage.table.status")}
+                    {t("runsPage.table.verdict")}
                   </th>
                   <th scope="col" style={th}>
                     {t("runsPage.table.findings")}
@@ -114,23 +148,62 @@ export function CiRunsPage() {
               </thead>
               <tbody>
                 {(runs ?? []).map((run) => {
-                  const meta = statusMeta(run.status);
-                  const statusLabel = meta.labelKey ? t(`runsPage.status.${meta.labelKey}`) : (run.status ?? "—");
+                  const vMeta = verdictMeta(run.status);
+                  const verdictLabel = vMeta.labelKey ? t(`runsPage.verdict.${vMeta.labelKey}`) : "—";
+                  const repoId = run.repo ? repoIdByFullName.get(run.repo) : undefined;
+
+                  const openTrace = () => setTraceRunId(run.id);
+                  const handleRowKeyDown = (e: KeyboardEvent<HTMLTableRowElement>) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openTrace();
+                    }
+                  };
+
                   return (
-                    <tr key={run.id}>
+                    <tr
+                      key={run.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={openTrace}
+                      onKeyDown={handleRowKeyDown}
+                      style={rowStyle}
+                    >
+                      <td style={td}>
+                        {run.pr_number == null ? (
+                          "—"
+                        ) : repoId ? (
+                          <Link
+                            href={`/repos/${repoId}/pulls/${run.pr_number}`}
+                            className="mono"
+                            style={{ color: "var(--accent)" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            #{run.pr_number}
+                          </Link>
+                        ) : (
+                          <span className="mono">#{run.pr_number}</span>
+                        )}
+                      </td>
                       <td style={td}>{run.repo ?? "—"}</td>
                       <td style={td}>{run.agent ?? "—"}</td>
                       <td style={td}>
-                        <Badge color={meta.color} icon={meta.icon}>
-                          {statusLabel}
-                        </Badge>
+                        <Badge color={vMeta.color}>{verdictLabel}</Badge>
                       </td>
                       <td style={td}>{run.findings_count ?? "—"}</td>
                       <td style={td}>
                         <RunCostBadge costUsd={run.cost_usd} />
                       </td>
                       <td style={td}>{formatDuration(run.duration_s)}</td>
-                      <td style={td}>{run.github_url ? <MonoLink href={run.github_url}>{t("runsPage.view")}</MonoLink> : "—"}</td>
+                      <td style={td}>
+                        {run.github_url ? (
+                          <span onClick={(e) => e.stopPropagation()}>
+                            <MonoLink href={run.github_url}>{t("runsPage.view")}</MonoLink>
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -139,6 +212,16 @@ export function CiRunsPage() {
           </div>
         )}
       </div>
+
+      {traceRunId && (
+        <RunTraceDrawer
+          runId={traceRunId}
+          agentName={selectedRun?.agent ?? null}
+          prNumber={selectedRun?.pr_number ?? null}
+          running={false}
+          onClose={() => setTraceRunId(null)}
+        />
+      )}
     </AppShell>
   );
 }
