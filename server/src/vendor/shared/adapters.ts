@@ -140,6 +140,26 @@ export interface CommitFilesPayload {
   files: CommitFile[];
 }
 
+/** Optional paging control for `listCiResults` (defaults to a small page). */
+export interface ListCiResultsOptions {
+  perPage?: number;
+}
+
+/**
+ * One completed GitHub Actions workflow run, plus its (optional) DevDigest
+ * result artifact — `result` is the parsed `devdigest-result.json` produced
+ * by `agent-runner` (validate with `CiResultArtifact` before trusting it);
+ * `null` when the run has no matching artifact.
+ */
+export interface CiWorkflowRunResult {
+  runId: number;
+  htmlUrl: string;
+  status: string;
+  conclusion: string | null;
+  createdAt: string;
+  result: unknown | null;
+}
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;
@@ -164,6 +184,13 @@ export interface GitHubClient {
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
+  /**
+   * List completed GitHub Actions workflow runs for `repo` and, for each,
+   * attempt to fetch + parse its `devdigest-result` artifact (the
+   * `devdigest-result.json` produced by `agent-runner`). Runs without a
+   * matching artifact yield `result: null`.
+   */
+  listCiResults(repo: RepoRef, opts?: ListCiResultsOptions): Promise<CiWorkflowRunResult[]>;
 }
 
 // ---------- Git (simple-git, heavy) ----------

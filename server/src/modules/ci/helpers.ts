@@ -1,6 +1,17 @@
-import type { CiExportInput, CiInstallation, CiRun, CiTarget } from '@devdigest/shared';
+import type {
+  CiExportInput,
+  CiFailOn,
+  CiInstallation,
+  CiResultArtifact,
+  CiRun,
+  CiRunStatus,
+  CiTarget,
+  RunLogLine,
+  RunTrace,
+} from '@devdigest/shared';
 import type { CiInstallationRow, CiRunRow } from '../../db/rows.js';
 import type { CiRunWithMeta } from './repository.js';
+import { buildRunTrace, emptyPromptAssembly } from '../../platform/trace-builder.js';
 
 /**
  * Pure helpers for the CI module — no I/O. Validation (AC-15), slug derivation
@@ -81,5 +92,125 @@ export function toRunDto(row: CiRunRow | CiRunWithMeta): CiRunDto {
     source: row.source,
     ...('repo' in row ? { repo: row.repo } : {}),
     ...('agentName' in row ? { agent: row.agentName } : {}),
+    duration_s:
+      'durationMs' in row && row.durationMs != null ? Math.round(row.durationMs / 1000) : null,
   };
+}
+
+/**
+ * Derives a `CiRunStatus` from an ingested `CiResultArtifact` + the
+ * installing agent's `ci_fail_on` gate (D4 — UI-derived verdict, no contract
+ * field). `no_findings` takes priority over the gate (an empty result can
+ * never "fail"); otherwise the gate trips on the lowest severity it names
+ * being present (`critical` only checks critical; `warning` checks
+ * critical+warning; `any` checks every severity, i.e. any finding at all).
+ */
+export function deriveCiStatus(artifact: CiResultArtifact, ciFailOn: CiFailOn): CiRunStatus {
+  if (artifact.findings_count === 0) return 'no_findings';
+
+  const critical = artifact.critical ?? 0;
+  const warning = artifact.warning ?? 0;
+  const suggestion = artifact.suggestion ?? 0;
+
+  const tripped = (() => {
+    switch (ciFailOn) {
+      case 'never':
+        return false;
+      case 'critical':
+        return critical > 0;
+      case 'warning':
+        return critical > 0 || warning > 0;
+      case 'any':
+        return critical > 0 || warning > 0 || suggestion > 0;
+    }
+  })();
+
+  return tripped ? 'failed' : 'succeeded';
+}
+
+/**
+ * Count of findings that meet or exceed the agent's `ci_fail_on` gate
+ * severity (mirrors `deriveCiStatus`'s gate logic) — persisted onto the
+ * companion `agent_runs.blockers` column so the run-trace drawer's blocker
+ * count matches local runs' semantics.
+ */
+export function countCiBlockers(artifact: CiResultArtifact, ciFailOn: CiFailOn): number {
+  const critical = artifact.critical ?? 0;
+  const warning = artifact.warning ?? 0;
+  const suggestion = artifact.suggestion ?? 0;
+
+  switch (ciFailOn) {
+    case 'never':
+      return 0;
+    case 'critical':
+      return critical;
+    case 'warning':
+      return critical + warning;
+    case 'any':
+      return critical + warning + suggestion;
+  }
+}
+
+/** Input for `ciResultToTrace` — everything not already carried by the artifact itself. */
+export interface CiResultToTraceInput {
+  /** GitHub Actions workflow run this artifact came from (for the log + raw_output). */
+  githubUrl: string;
+  /** Workflow run's `created_at`, used as the trace's single log timestamp anchor. */
+  createdAt: string;
+  /** The installing agent's model/provider (the artifact itself carries no model). */
+  model: string;
+  provider?: string | null;
+  artifact: CiResultArtifact;
+}
+
+/**
+ * Builds the companion `RunTrace` for one ingested CI run (D1 — shared-id
+ * link with the `ci_run`/`agent_runs` rows `insertRunWithTrace` writes). No
+ * LLM call happened in THIS process — the run executed inside the GitHub
+ * Actions job — so `prompt_assembly`/`tool_calls`/`memory_pulled`/`specs_read`
+ * are all empty; the log exists purely to explain provenance and link back
+ * to the workflow run.
+ */
+export function ciResultToTrace(input: CiResultToTraceInput): RunTrace {
+  const { githubUrl, createdAt, model, provider, artifact } = input;
+  const critical = artifact.critical ?? 0;
+  const warning = artifact.warning ?? 0;
+  const suggestion = artifact.suggestion ?? 0;
+
+  const log: RunLogLine[] = [
+    { t: '00.00', kind: 'info', msg: `Ingested from a GitHub Actions CI run (${createdAt}).` },
+    {
+      t: '00.00',
+      kind: 'result',
+      msg: `Findings: ${artifact.findings_count} (critical ${critical}, warning ${warning}, suggestion ${suggestion}).`,
+    },
+    { t: '00.00', kind: 'info', msg: `Workflow run: ${githubUrl}` },
+  ];
+
+  return buildRunTrace({
+    config: {
+      agent: artifact.agent,
+      version: artifact.version ?? null,
+      provider: provider ?? null,
+      model,
+      pr: artifact.pr_number ?? null,
+      source: 'ci',
+    },
+    stats: {
+      duration_ms: artifact.duration_ms ?? 0,
+      tokens_in: 0,
+      tokens_out: 0,
+      findings: artifact.findings_count,
+      grounding: 'n/a',
+    },
+    promptAssembly: emptyPromptAssembly(
+      'CI ingest — no prompt captured; the agent ran inside the GitHub Actions workflow, not this process.',
+      '',
+    ),
+    toolCalls: [],
+    rawOutput: `Ingested from CI — see ${githubUrl}`,
+    memoryPulled: [],
+    specsRead: [],
+    log,
+  });
 }

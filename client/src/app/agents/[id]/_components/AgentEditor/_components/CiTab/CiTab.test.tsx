@@ -8,6 +8,7 @@ import type { CiRunRecord } from "@/lib/hooks/useCi";
 
 const mocks = vi.hoisted(() => ({
   updateFailOnMutate: vi.fn(),
+  ingestCiMutateAsync: vi.fn(),
   installations: [] as CiInstallation[],
   installationsLoading: false,
   installationsError: false,
@@ -21,8 +22,14 @@ vi.mock("@/lib/hooks/useCi", () => ({
     isError: mocks.installationsError,
     refetch: vi.fn(),
   }),
-  useAgentCiRuns: () => ({ data: mocks.runs }),
+  useAgentCiRuns: () => ({
+    data: mocks.runs,
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  }),
   useUpdateCiFailOn: () => ({ mutate: mocks.updateFailOnMutate, isPending: false }),
+  useIngestCiRuns: () => ({ mutateAsync: mocks.ingestCiMutateAsync, isPending: false }),
 }));
 
 // The wizard has its own test suite covering its internals — here we only
@@ -85,6 +92,7 @@ function renderCiTab(agent: Agent = AGENT) {
 
 beforeEach(() => {
   mocks.updateFailOnMutate.mockReset();
+  mocks.ingestCiMutateAsync.mockReset();
   mocks.installations = [];
   mocks.installationsLoading = false;
   mocks.installationsError = false;
@@ -103,7 +111,9 @@ describe("CiTab", () => {
     mocks.runs = [RUN];
     renderCiTab();
 
-    expect(screen.getByText("acme/payments-api")).toBeInTheDocument();
+    // "acme/payments-api" now also appears in the run-history table's repo
+    // column (same run/installation) — assert presence, not uniqueness.
+    expect(screen.getAllByText("acme/payments-api").length).toBeGreaterThan(0);
     expect(screen.getByText("GitHub Actions")).toBeInTheDocument();
     expect(screen.getByText("Succeeded")).toBeInTheDocument();
   });

@@ -265,6 +265,16 @@ export const CiResultArtifact = z.object({
 });
 export type CiResultArtifact = z.infer<typeof CiResultArtifact>;
 
+/**
+ * The GitHub Actions artifact the CI workflow uploads and the studio ingests —
+ * the single source of truth shared by the workflow generator
+ * (`modules/ci/generators/workflow.ts`) and the ingest adapter
+ * (`adapters/github/octokit.ts`). Keep both sides referencing these constants.
+ */
+export const CI_RESULT_ARTIFACT_NAME = 'devdigest-result';
+/** File name (the `CiResultArtifact` JSON) inside that artifact's zip. */
+export const CI_RESULT_FILE_NAME = 'devdigest-result.json';
+
 // ===========================================================================
 // Conformance (PRD ↔ PR) — API record (the analysis shape is `Conformance`)
 // ===========================================================================
