@@ -171,3 +171,20 @@ export async function setFindingDismissed(
     .returning();
   return row;
 }
+
+/**
+ * `learn` (SPEC-06 AC-17) is independent of accept/dismiss — it does not
+ * clear either, unlike accept/dismiss which are mutually exclusive.
+ */
+export async function setFindingLearned(
+  db: Db,
+  findingId: string,
+  at: Date | null,
+): Promise<FindingRow | undefined> {
+  const [row] = await db
+    .update(t.findings)
+    .set({ learnedAt: at })
+    .where(eq(t.findings.id, findingId))
+    .returning();
+  return row;
+}

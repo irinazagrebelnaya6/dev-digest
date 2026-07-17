@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
@@ -159,6 +159,9 @@ export async function createAgentRun(
     prId: string;
     provider: string | null;
     model: string | null;
+    /** Links this run to its `multi_agent_runs` launch (SPEC-06 AC-9); null
+     *  for legacy `{agentId}`/`{all}` launches. */
+    multiAgentRunId?: string | null;
   },
 ): Promise<string> {
   const [row] = await db
@@ -169,11 +172,129 @@ export async function createAgentRun(
       prId: values.prId,
       provider: values.provider,
       model: values.model,
+      multiAgentRunId: values.multiAgentRunId ?? null,
       status: 'running',
       source: 'local',
     })
     .returning({ id: t.agentRuns.id });
   return row!.id;
+}
+
+// ---- multi-agent runs (SPEC-06) -------------------------------------------
+
+/** Create the `multi_agent_runs` row for a picked-set launch (AC-9). */
+export async function createMultiAgentRun(
+  db: Db,
+  values: { workspaceId: string; prId: string },
+): Promise<string> {
+  const [row] = await db
+    .insert(t.multiAgentRuns)
+    .values({ workspaceId: values.workspaceId, prId: values.prId })
+    .returning({ id: t.multiAgentRuns.id });
+  return row!.id;
+}
+
+export type MultiAgentRunRow = typeof t.multiAgentRuns.$inferSelect;
+
+/** A single multi-agent run row, workspace-scoped (AC-24). */
+export async function getMultiAgentRun(
+  db: Db,
+  workspaceId: string,
+  id: string,
+): Promise<MultiAgentRunRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(t.multiAgentRuns)
+    .where(and(eq(t.multiAgentRuns.workspaceId, workspaceId), eq(t.multiAgentRuns.id, id)));
+  return row;
+}
+
+export interface MultiRunChild {
+  run: typeof t.agentRuns.$inferSelect;
+  agentName: string | null;
+  reviews: { review: typeof t.reviews.$inferSelect; findings: (typeof t.findings.$inferSelect)[] }[];
+}
+
+/**
+ * All child `agent_runs` for one multi-agent run (+ agent name, + each run's
+ * reviews/findings), workspace-scoped and ordered by launch order (AC-9,
+ * AC-24). Backs the results endpoint's columns/grouping/economics.
+ */
+export async function childRunsForMultiRun(
+  db: Db,
+  workspaceId: string,
+  multiAgentRunId: string,
+): Promise<MultiRunChild[]> {
+  const rows = await db
+    .select({ run: t.agentRuns, agentName: t.agents.name })
+    .from(t.agentRuns)
+    .leftJoin(t.agents, eq(t.agents.id, t.agentRuns.agentId))
+    .where(
+      and(
+        eq(t.agentRuns.workspaceId, workspaceId),
+        eq(t.agentRuns.multiAgentRunId, multiAgentRunId),
+      ),
+    )
+    .orderBy(t.agentRuns.ranAt);
+  if (rows.length === 0) return [];
+
+  const runIds = rows.map((r) => r.run.id);
+  const reviews = await db.select().from(t.reviews).where(inArray(t.reviews.runId, runIds));
+  const reviewIds = reviews.map((r) => r.id);
+  const findings =
+    reviewIds.length > 0
+      ? await db.select().from(t.findings).where(inArray(t.findings.reviewId, reviewIds))
+      : [];
+
+  return rows.map(({ run, agentName }) => ({
+    run,
+    agentName: agentName ?? null,
+    reviews: reviews
+      .filter((review) => review.runId === run.id)
+      .map((review) => ({
+        review,
+        findings: findings.filter((f) => f.reviewId === review.id),
+      })),
+  }));
+}
+
+/**
+ * Completed runs for one agent (workspace-scoped) — the pre-run estimate's
+ * "exact" source (SPEC-06 AC-5): this agent's own token/duration history.
+ */
+export async function doneRunsForAgent(
+  db: Db,
+  workspaceId: string,
+  agentId: string,
+): Promise<{ durationMs: number | null; tokensIn: number | null; tokensOut: number | null }[]> {
+  return db
+    .select({
+      durationMs: t.agentRuns.durationMs,
+      tokensIn: t.agentRuns.tokensIn,
+      tokensOut: t.agentRuns.tokensOut,
+    })
+    .from(t.agentRuns)
+    .where(
+      and(
+        eq(t.agentRuns.workspaceId, workspaceId),
+        eq(t.agentRuns.agentId, agentId),
+        eq(t.agentRuns.status, 'done'),
+      ),
+    );
+}
+
+/**
+ * All completed runs in the workspace, any agent — the "comparable runs"
+ * fallback source for an agent with no history of its own (SPEC-06 AC-7).
+ */
+export async function doneRunsForWorkspace(
+  db: Db,
+  workspaceId: string,
+): Promise<{ tokensIn: number | null; tokensOut: number | null }[]> {
+  return db
+    .select({ tokensIn: t.agentRuns.tokensIn, tokensOut: t.agentRuns.tokensOut })
+    .from(t.agentRuns)
+    .where(and(eq(t.agentRuns.workspaceId, workspaceId), eq(t.agentRuns.status, 'done')));
 }
 
 export async function completeAgentRun(

@@ -43,6 +43,9 @@ export const findings = pgTable('findings', {
   trifectaComponents: jsonb('trifecta_components').$type<string[]>(),
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
+  /** Set when the user activates "Learn" on a finding (SPEC-06 AC-17) — a
+   *  durable signal to be wired to the Memory subsystem in a later lesson. */
+  learnedAt: timestamp('learned_at', { withTimezone: true }),
 });
 
 export const prIntent = pgTable('pr_intent', {

@@ -15,6 +15,7 @@ import type { Brief, Finding, Intent, Risk, RunSummary, RunTrace } from '@devdig
 
 import type { FindingRow, PullRow } from '../../db/rows.js';
 export type { FindingRow, PullRow };
+export type { MultiAgentRunRow, MultiRunChild } from './repository/run.repo.js';
 
 export type ReviewRow = typeof t.reviews.$inferSelect;
 
@@ -172,6 +173,10 @@ export class ReviewRepository {
     return reviewRepo.setFindingDismissed(this.db, findingId, at);
   }
 
+  setFindingLearned(findingId: string, at: Date | null): Promise<FindingRow | undefined> {
+    return reviewRepo.setFindingLearned(this.db, findingId, at);
+  }
+
   // ---- intent -------------------------------------------------------------
 
   upsertIntent(prId: string, intent: Intent): Promise<void> {
@@ -203,6 +208,7 @@ export class ReviewRepository {
     prId: string;
     provider: string | null;
     model: string | null;
+    multiAgentRunId?: string | null;
   }): Promise<string> {
     return runRepo.createAgentRun(this.db, values);
   }
@@ -239,5 +245,43 @@ export class ReviewRepository {
 
   getRunTrace(runId: string): Promise<RunTrace | undefined> {
     return runRepo.getRunTrace(this.db, runId);
+  }
+
+  // ---- multi-agent runs (SPEC-06) -----------------------------------------
+
+  /** Create the multi_agent_runs row for a picked-set launch (AC-9). */
+  createMultiAgentRun(values: { workspaceId: string; prId: string }): Promise<string> {
+    return runRepo.createMultiAgentRun(this.db, values);
+  }
+
+  /** A single multi-agent run row, workspace-scoped (AC-24). */
+  getMultiAgentRun(
+    workspaceId: string,
+    id: string,
+  ): Promise<runRepo.MultiAgentRunRow | undefined> {
+    return runRepo.getMultiAgentRun(this.db, workspaceId, id);
+  }
+
+  /** All child agent_runs (+ agent name, + reviews/findings) for one multi-run. */
+  childRunsForMultiRun(
+    workspaceId: string,
+    multiAgentRunId: string,
+  ): Promise<runRepo.MultiRunChild[]> {
+    return runRepo.childRunsForMultiRun(this.db, workspaceId, multiAgentRunId);
+  }
+
+  /** This agent's own completed-run history (pre-run estimate "exact" source). */
+  doneRunsForAgent(
+    workspaceId: string,
+    agentId: string,
+  ): Promise<{ durationMs: number | null; tokensIn: number | null; tokensOut: number | null }[]> {
+    return runRepo.doneRunsForAgent(this.db, workspaceId, agentId);
+  }
+
+  /** All completed runs in the workspace — the "comparable runs" fallback source. */
+  doneRunsForWorkspace(
+    workspaceId: string,
+  ): Promise<{ tokensIn: number | null; tokensOut: number | null }[]> {
+    return runRepo.doneRunsForWorkspace(this.db, workspaceId);
   }
 }

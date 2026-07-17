@@ -39,6 +39,15 @@ export const NAV: NavGroup[] = [
       { key: "eval", label: "Evals", icon: "Gauge", href: "/evals", gKey: "e" },
     ],
   },
+  {
+    section: "GLOBAL",
+    items: [
+      // SPEC-06 — do NOT add "Agent Performance" or "CI Runs" here; both are
+      // future/out-of-scope per the spec's non-goals, even though `activeKeyFor()`
+      // already has pre-wired prefix matches for them.
+      { key: "multi-agent", label: "Multi-Agent Review", icon: "Users", href: "/multi-agent", gKey: "m" },
+    ],
+  },
 ];
 
 export const SETTINGS_ITEM: NavItemDef = {
@@ -71,6 +80,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: "g s", label: "Go to Skills", group: "Navigation" },
   { keys: "g v", label: "Go to Conventions", group: "Navigation" },
   { keys: "g e", label: "Go to Eval Dashboard", group: "Navigation" },
+  { keys: "g m", label: "Go to Multi-Agent Review", group: "Navigation" },
   { keys: "j / k", label: "Next / previous finding", group: "Findings" },
   { keys: "a", label: "Accept finding", group: "Findings" },
   { keys: "d", label: "Dismiss finding", group: "Findings" },

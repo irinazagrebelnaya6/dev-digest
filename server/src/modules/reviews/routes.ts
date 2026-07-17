@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 import { RunRequest } from '@devdigest/shared';
 import type { RunEvent, SmartDiff } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
@@ -9,18 +10,20 @@ import { ReviewService } from './service.js';
 
 /**
  * reviews module.
- *   POST   /pulls/:id/review  {agentId} | {all:true}  → run review(s); returns runs
+ *   POST   /pulls/:id/review  {agentId}|{all:true}|{agentIds:[...]}  → run review(s); returns runs
  *   GET    /runs/:id/events                            → SSE stream of RunEvent (replay-first)
  *   GET    /runs/:id/trace                             → the single-document RunTrace
  *   GET    /pulls/:id/reviews                          → persisted reviews + findings for a PR
- *   POST   /findings/:id/(accept|dismiss)              → finding actions
+ *   POST   /findings/:id/(accept|dismiss|learn)         → finding actions
+ *   POST   /findings/:id/reply  {reply}                 → post a GitHub PR review comment
  *   POST   /pulls/:id/intent                            → recompute + persist the PR's Intent (sync)
  *   GET    /pulls/:id/intent                            → the stored Intent for a PR, or null
  *   POST   /pulls/:id/risks                             → recompute + persist the PR's Risk Areas (sync)
  *   GET    /pulls/:id/risks                             → the stored Risk Areas for a PR, or null
  *   GET    /pulls/:id/smart-diff                        → risk-ordered diff layout (NO LLM call)
  */
-const FINDING_ACTIONS = ['accept', 'dismiss'] as const;
+const FINDING_ACTIONS = ['accept', 'dismiss', 'learn'] as const;
+const ReplyBody = z.object({ reply: z.string().min(1) });
 export default async function reviewsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
@@ -36,16 +39,18 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
     const { workspaceId } = await getContext(container, req);
     const body = RunRequest.parse(req.body ?? {});
     const targets = await service.resolveTargets(workspaceId, {
+      ...(body.agentIds !== undefined ? { agentIds: body.agentIds } : {}),
       ...(body.agentId !== undefined ? { agentId: body.agentId } : {}),
       ...(body.all !== undefined ? { all: body.all } : {}),
     });
-    const { runs, reviews } = await service.runReview(
+    const { runs, reviews, multiAgentRunId } = await service.runReview(
       workspaceId,
       req.params.id,
       targets,
       req.log,
+      { ...(body.agentIds !== undefined ? { agentIds: body.agentIds } : {}) },
     );
-    return { pr_id: req.params.id, runs, reviews };
+    return { pr_id: req.params.id, runs, reviews, multi_agent_run_id: multiAgentRunId };
   });
 
   // ---- Intent Layer: synchronous recompute (the "Recompute" button) --------
@@ -189,7 +194,7 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
     return { ok: true };
   });
 
-  // ---- Finding actions (accept / dismiss) ---------------------------------
+  // ---- Finding actions (accept / dismiss / learn) -------------------------
   for (const action of FINDING_ACTIONS) {
     app.post(`/findings/:id/${action}`, { schema: { params: IdParams } }, async (req) => {
       const { workspaceId } = await getContext(container, req);
@@ -197,4 +202,14 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
       return result;
     });
   }
+
+  // ---- Finding action: reply to author (posts a GitHub PR review comment) -
+  app.post(
+    '/findings/:id/reply',
+    { schema: { params: IdParams, body: ReplyBody } },
+    async (req) => {
+      const { workspaceId } = await getContext(container, req);
+      return service.actOnFinding(workspaceId, req.params.id, 'reply', req.body.reply);
+    },
+  );
 }

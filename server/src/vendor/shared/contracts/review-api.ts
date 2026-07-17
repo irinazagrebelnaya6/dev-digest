@@ -53,6 +53,13 @@ export const ReviewRunResponse = z.object({
   pr_id: z.string(),
   runs: z.array(ReviewRunTarget),
   reviews: z.array(ReviewRecord),
+  /**
+   * Set when the launch carried a picked agent set (`RunRequest.agentIds`,
+   * SPEC-06) and a `multi_agent_runs` row was created to link the child
+   * runs; `null`/`undefined` for legacy `{agentId}`/`{all}` launches. Lets
+   * the picker navigate straight to the Multi-Agent Review results page.
+   */
+  multi_agent_run_id: z.string().nullish(),
 });
 export type ReviewRunResponse = z.infer<typeof ReviewRunResponse>;
 

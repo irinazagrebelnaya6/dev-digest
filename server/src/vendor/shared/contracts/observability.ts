@@ -48,12 +48,18 @@ export const AgentColumn = z.object({
 });
 export type AgentColumn = z.infer<typeof AgentColumn>;
 
-/** One agent's stance on a contended file:line. */
+/**
+ * One agent's stance on a contended file:line.
+ * `verdict`: a `Severity` when the agent flagged it; `'ignored'` when an
+ * enabled agent that ran on the PR produced no finding at that location
+ * ("did not flag"); `'did_not_run'` (SPEC-06 AC-20) when the agent was not
+ * part of this multi-agent run at all ("did not run") — distinct from
+ * `'ignored'` so a verdict is never claimed for an agent that never ran.
+ */
 export const ConflictTake = z.object({
   agent_id: z.string(),
   persona: z.string(),
-  /** Severity if the agent flagged it, or 'ignored' when it did not. */
-  verdict: z.union([Severity, z.literal('ignored')]),
+  verdict: z.union([Severity, z.literal('ignored'), z.literal('did_not_run')]),
   note: z.string(),
 });
 export type ConflictTake = z.infer<typeof ConflictTake>;
@@ -71,6 +77,16 @@ export const Conflict = z.object({
 });
 export type Conflict = z.infer<typeof Conflict>;
 
+/**
+ * Overall status of a multi-agent launch, derived from its child `agent_runs`
+ * (SPEC-06 AC-12; see `modules/multi-agent/status.ts#deriveMultiAgentStatus`):
+ * `running` while any child is still running; `partial` when all settled with
+ * ≥1 failure; `done` when every child is `done`; `failed` when every child
+ * failed.
+ */
+export const MultiAgentStatus = z.enum(['running', 'partial', 'done', 'failed']);
+export type MultiAgentStatus = z.infer<typeof MultiAgentStatus>;
+
 /** Response of POST /pulls/:id/multi-agent-run and GET /pulls/:id/multi-agent. */
 export const MultiAgentRun = z.object({
   id: z.string(),
@@ -80,10 +96,63 @@ export const MultiAgentRun = z.object({
   agent_count: z.number().int(),
   total_duration_ms: z.number().int(),
   total_cost_usd: z.number().nullable(),
+  status: MultiAgentStatus,
   columns: z.array(AgentColumn),
   conflicts: z.array(Conflict),
 });
 export type MultiAgentRun = z.infer<typeof MultiAgentRun>;
+
+// ---------------------------------------------------------------------------
+// Pre-run estimate (Configure run page) — SPEC-06 AC-5..AC-7
+// ---------------------------------------------------------------------------
+
+/**
+ * One agent's pre-run time/cost estimate, derived from its past `agent_runs`
+ * tokens via `PriceBook` (no LLM call). `confidence` distinguishes an exact
+ * figure (`'exact'`, prior runs of this agent exist) from a low-confidence
+ * fallback (`'approx'`, estimated from model price × median tokens of
+ * comparable runs) from no estimate at all (`'none'`, no comparable runs —
+ * the UI renders `~`/`—` respectively rather than a fabricated number).
+ */
+export const AgentEstimate = z.object({
+  agent_id: z.string(),
+  agent_name: z.string(),
+  est_time_ms: z.number().int().nullable(),
+  est_cost_usd: z.number().nullable(),
+  confidence: z.enum(['exact', 'approx', 'none']),
+});
+export type AgentEstimate = z.infer<typeof AgentEstimate>;
+
+/**
+ * Response of `GET /pulls/:id/agent-estimates`. `summary_time_ms` is the MAX
+ * over the selected agents' `est_time_ms` (parallel fan-out); `summary_cost_usd`
+ * is the SUM over `est_cost_usd` (every agent still costs its own tokens).
+ */
+export const PreRunEstimate = z.object({
+  per_agent: z.array(AgentEstimate),
+  summary_time_ms: z.number().int(),
+  summary_cost_usd: z.number(),
+});
+export type PreRunEstimate = z.infer<typeof PreRunEstimate>;
+
+// ---------------------------------------------------------------------------
+// 1-vs-N economics comparison — SPEC-06 AC-22
+// ---------------------------------------------------------------------------
+
+/** Response of `GET /multi-agent-runs/:id/economics` — totals via `PriceBook`. */
+export const MultiAgentEconomics = z.object({
+  single: z.object({
+    tokens_in: z.number().int(),
+    tokens_out: z.number().int(),
+    cost_usd: z.number(),
+  }),
+  multi: z.object({
+    tokens_in: z.number().int(),
+    tokens_out: z.number().int(),
+    cost_usd: z.number(),
+  }),
+});
+export type MultiAgentEconomics = z.infer<typeof MultiAgentEconomics>;
 
 // ---------------------------------------------------------------------------
 // Per-agent Stats (GET /agents/:id/stats)

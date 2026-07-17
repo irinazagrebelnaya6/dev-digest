@@ -12,6 +12,11 @@ export const agentRuns = pgTable('agent_runs', {
     .references(() => workspaces.id, { onDelete: 'cascade' }),
   agentId: uuid('agent_id').references(() => agents.id, { onDelete: 'set null' }),
   prId: uuid('pr_id').references(() => pullRequests.id, { onDelete: 'set null' }),
+  /** Links a child run to the `multi_agent_runs` row of the launch that
+   *  created it (SPEC-06 AC-9). Null for legacy `{agentId}`/`{all}` launches. */
+  multiAgentRunId: uuid('multi_agent_run_id').references(() => multiAgentRuns.id, {
+    onDelete: 'set null',
+  }),
   ranAt: timestamp('ran_at', { withTimezone: true }).defaultNow().notNull(),
   provider: text('provider'),
   model: text('model'),
