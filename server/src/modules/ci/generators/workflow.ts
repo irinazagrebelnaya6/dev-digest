@@ -43,10 +43,13 @@ export function workflowYaml(
     jobs: {
       review: {
         'runs-on': 'ubuntu-latest',
-        // AC-6: gate the WHOLE job on non-fork PRs, not just the secret env
-        // var — so a fork-triggered run never executes ANY step with
-        // OPENROUTER_API_KEY in its environment.
-        if: 'github.event.pull_request.head.repo.fork == false',
+        // AC-6: gate the WHOLE job on SAME-REPO PRs (never external forks) so a
+        // fork-triggered run never executes ANY step with OPENROUTER_API_KEY.
+        // Compare head.repo.full_name to github.repository — NOT head.repo.fork:
+        // a repo that is ITSELF a fork (the common case — everyone forks the
+        // demo repo) has head.repo.fork == true even for its own branches'
+        // PRs, which would wrongly skip every run.
+        if: 'github.event.pull_request.head.repo.full_name == github.repository',
         steps: [
           { uses: 'actions/checkout@v4' },
           { uses: 'actions/setup-node@v4', with: { 'node-version': '20' } },
@@ -115,7 +118,7 @@ export function assertWorkflowSecurity(yamlText: string): boolean {
   const secretOk = referencesSecretOnly(yamlText, 'OPENROUTER_API_KEY');
 
   const forkGuardOk = Object.values(parsed.jobs ?? {}).some((job) =>
-    (job.if ?? '').replace(/\s+/g, ' ').includes('head.repo.fork == false'),
+    (job.if ?? '').replace(/\s+/g, ' ').includes('head.repo.full_name == github.repository'),
   );
 
   return permsOk && secretOk && forkGuardOk;
