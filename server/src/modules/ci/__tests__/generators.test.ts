@@ -98,7 +98,7 @@ describe('CI workflow generator (AC-4, AC-5, AC-6, AC-17)', () => {
       triggers: ['opened', 'synchronize'],
       postAs: 'github_review',
     });
-    expect(yaml).toContain('github.event.pull_request.head.repo.fork == false');
+    expect(yaml).toContain('github.event.pull_request.head.repo.full_name == github.repository');
   });
 
   it('invokes the bundled runner entry (AC-17)', () => {
@@ -133,19 +133,19 @@ describe('CI workflow generator (AC-4, AC-5, AC-6, AC-17)', () => {
 
 describe('assertWorkflowSecurity — regression net (AC-4, AC-6)', () => {
   it('rejects a workflow with broader permissions', () => {
-    const bad = `permissions:\n  contents: write\n  pull-requests: write\njobs:\n  review:\n    if: github.event.pull_request.head.repo.fork == false\n`;
+    const bad = `permissions:\n  contents: write\n  pull-requests: write\njobs:\n  review:\n    if: github.event.pull_request.head.repo.full_name == github.repository\n`;
     expect(assertWorkflowSecurity(bad)).toBe(false);
   });
 
   it('rejects a workflow with an extra permission key', () => {
-    const bad = `permissions:\n  contents: read\n  pull-requests: write\n  issues: write\njobs:\n  review:\n    if: github.event.pull_request.head.repo.fork == false\n`;
+    const bad = `permissions:\n  contents: read\n  pull-requests: write\n  issues: write\njobs:\n  review:\n    if: github.event.pull_request.head.repo.full_name == github.repository\n`;
     expect(assertWorkflowSecurity(bad)).toBe(false);
   });
 
   it('rejects a workflow that inlines a literal-looking key alongside the secret ref', () => {
     const bad =
       `permissions:\n  contents: read\n  pull-requests: write\n` +
-      `jobs:\n  review:\n    if: github.event.pull_request.head.repo.fork == false\n` +
+      `jobs:\n  review:\n    if: github.event.pull_request.head.repo.full_name == github.repository\n` +
       `    steps:\n      - env:\n          OPENROUTER_API_KEY: \${{ secrets.OPENROUTER_API_KEY }}\n` +
       `          NOTE: "OPENROUTER_API_KEY=sk-inlined-value"\n`;
     expect(assertWorkflowSecurity(bad)).toBe(false);
@@ -159,7 +159,7 @@ describe('assertWorkflowSecurity — regression net (AC-4, AC-6)', () => {
   it('accepts a workflow that satisfies all three invariants', () => {
     const good =
       `permissions:\n  contents: read\n  pull-requests: write\n` +
-      `jobs:\n  review:\n    if: github.event.pull_request.head.repo.fork == false\n` +
+      `jobs:\n  review:\n    if: github.event.pull_request.head.repo.full_name == github.repository\n` +
       `    steps:\n      - env:\n          OPENROUTER_API_KEY: \${{ secrets.OPENROUTER_API_KEY }}\n`;
     expect(assertWorkflowSecurity(good)).toBe(true);
   });
