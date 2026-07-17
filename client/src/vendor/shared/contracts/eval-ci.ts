@@ -158,6 +158,34 @@ export type ComposeReviewPreview = z.infer<typeof ComposeReviewPreview>;
 // Export-to-CI + CI Runs
 // ===========================================================================
 
+/** Agent configuration as a serializable manifest (shared by studio and CI runner). */
+export const CiFailOn = z.enum(['never', 'critical', 'warning', 'any']).default('critical');
+export type CiFailOn = z.infer<typeof CiFailOn>;
+
+/**
+ * AgentManifest — the agent contract shared by the studio and the CI runner.
+ *
+ * The studio (`CiService.agentYaml`) WRITES this shape to
+ * `.devdigest/agents/<slug>.yaml`; the agent-runner READS it. Keeping one Zod
+ * schema for both ends guarantees the formats never drift. `skills` are slugs
+ * resolved to `.devdigest/skills/<slug>.md`.
+ */
+export const AgentManifest = z.object({
+  name: z.string().min(1),
+  provider: z.enum(['openai', 'anthropic', 'openrouter']).default('openrouter'),
+  model: z.string().min(1),
+  system_prompt: z.string(),
+  skills: z
+    .array(z.string())
+    .nullish()
+    .transform((v) => v ?? []),
+  strategy: z.enum(['auto', 'single-pass', 'map-reduce']).default('auto'),
+  ci_fail_on: CiFailOn.default('critical'),
+});
+export type AgentManifest = z.infer<typeof AgentManifest>;
+/** Caller-facing input type — `.default()` fields stay optional. */
+export type AgentManifestInput = z.input<typeof AgentManifest>;
+
 export const CiTarget = z.enum(['gha', 'circle', 'jenkins', 'cli']);
 export type CiTarget = z.infer<typeof CiTarget>;
 
@@ -236,6 +264,16 @@ export const CiResultArtifact = z.object({
   pr_number: z.number().int().nullish(),
 });
 export type CiResultArtifact = z.infer<typeof CiResultArtifact>;
+
+/**
+ * The GitHub Actions artifact the CI workflow uploads and the studio ingests —
+ * the single source of truth shared by the workflow generator
+ * (`modules/ci/generators/workflow.ts`) and the ingest adapter
+ * (`adapters/github/octokit.ts`). Keep both sides referencing these constants.
+ */
+export const CI_RESULT_ARTIFACT_NAME = 'devdigest-result';
+/** File name (the `CiResultArtifact` JSON) inside that artifact's zip. */
+export const CI_RESULT_FILE_NAME = 'devdigest-result.json';
 
 // ===========================================================================
 // Conformance (PRD ↔ PR) — API record (the analysis shape is `Conformance`)

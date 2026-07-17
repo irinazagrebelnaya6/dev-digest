@@ -35,6 +35,9 @@ export function activeKeyFor(pathname: string): string {
   if (pathname.startsWith("/eval")) return "eval";
   if (pathname.startsWith("/memory")) return "memory";
   if (pathname.startsWith("/agent-performance")) return "agent-performance";
-  if (pathname.startsWith("/ci-runs")) return "ci-runs";
+  // SPEC-06 CI Runs page — the nav item's `key` is "ci" (route is `/ci`).
+  // Was previously a stale/unused "ci-runs" mapping with no matching route
+  // or nav item; repointed to the real feature.
+  if (pathname.startsWith("/ci")) return "ci";
   return "";
 }
